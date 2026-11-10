@@ -15,15 +15,20 @@ Submission for the TRACT take-home test: a Finisher-facing tool to flag a suppli
 
 ## Running it
 
-Work in progress: the backend seed is the first working slice. The API and the UI follow.
+Work in progress: the backend can seed its databases and sign users in. The data endpoints and the UI follow.
 
-You need [uv](https://docs.astral.sh/uv/), which also installs the right Python for you.
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/), which also installs the right Python for you.
 
-Then, from the `backend` folder:
+From the `backend` folder:
 
-```powershell
-uv run pytest               # run the tests
-uv run python -m app.seed   # create the databases in backend/data
+```sh
+uv run pytest                           # run the tests
+uv run python -m app.seed               # create the databases in backend/data (once)
+uv run uvicorn app.main:app --reload    # start the API on http://localhost:8000
 ```
 
-The seed prints one line per Finisher with its username. Every demo user has the password `fairtoy-demo`. The seed refuses to run twice; to start over, delete `backend/data`.
+The seed prints one line per Finisher with its username, for example `kestrel-play`. Every demo user has the password `fairtoy-demo`. The seed refuses to run twice; to start over, delete `backend/data`.
+
+The API documents itself at http://localhost:8000/docs.
+
+Sign-in tokens are signed with the secret in the `FAIRTOY_SECRET` environment variable. If it is not set, the API makes a random one at startup, so everyone is signed out when it restarts.

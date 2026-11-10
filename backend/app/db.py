@@ -92,7 +92,10 @@ def connect(path: Path, *, create: bool = False) -> sqlite3.Connection:
     """
     if not create and not path.is_file():
         raise FileNotFoundError(f"Database not found: {path}. Run the seed first.")
-    conn = sqlite3.connect(path)
+    # A request's connection is opened and used on different worker threads
+    # (FastAPI runs dependencies and endpoints in a thread pool), but never by
+    # two at once: each request gets its own connection.
+    conn = sqlite3.connect(path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
