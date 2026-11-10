@@ -61,7 +61,7 @@ A short log of the choices that shape FairToy. Each entry says what we decided, 
 | Unit cost of a part source | Same. |
 | BOM quantity | A toy is exposed if it uses the part at all, however many. |
 | Factory address and city | Do not affect the trace; six are blank. |
-| Factory as its own record, and factories that make no part (46 of 232) | Findings are not made against factories. Name and country are kept as a detail of the part source. |
+| Factory as its own record, and factories that make no part (46 of 232) | Findings are not made against factories. Code, name and country are kept as a detail of the part source. |
 | Finisher HQ country | Not needed. |
 | Retailers, Basic Materials, orders, purchases | Not in the data, or out of scope. |
 
@@ -69,6 +69,37 @@ A short log of the choices that shape FairToy. Each entry says what we decided, 
 
 ## D10: Model for the trace, not for the CSV files
 
-- **Decision:** The data model is shaped around the questions we answer (toys, their parts, who can make each part, which suppliers have a finding), not copied one to one from the six CSVs. An entity exists only if it needs an identity. Toy, part, supplier and finding do. Factory does not: it is two plain fields on the part source. The BOM and `parts.csv` become two link tables.
+- **Decision:** The data model is shaped around the questions we answer (toys, their parts, who can make each part, which suppliers have a finding), not copied one to one from the six CSVs. An entity exists only if it needs an identity. Toy, part, supplier and finding do. Factory does not: it is three plain fields on the part source (code, name, country). The BOM and `parts.csv` become two link tables.
 - **Rejected:** Mirroring the CSVs, which brings composite keys, a factory table nobody queries, and a generic provider type with one value.
 - **Consequence:** The trace is two hops (toy, part, supplier). The model has fewer concepts, and nothing in it exists "just in case".
+
+## D11: The API is scoped to a Finisher, and findings are an idempotent sub-resource
+
+- **Decision:** Every path is under `/api/finishers/{fid}/...`. A finding is recorded with `PUT` and withdrawn with `DELETE` on `.../suppliers/{id}/finding`. Both are idempotent and return the new finding state and toy totals. A Finisher cannot record a finding on a supplier its toys do not reach.
+- **Rejected:** A Finisher header or session (there is no login), and a `POST` that creates findings with their own ids (a finding is identified by Finisher and supplier, so a repeat click would create an error or a duplicate).
+- **Consequence:** A double click is harmless, isolation is enforced by the path, and the UI needs no extra call after a change. See [api.md](api.md).
+
+## D12: Exposure is calculated in the backend by a pure function
+
+- **Decision:** One query loads a Finisher's facts (toys, their parts, each part's suppliers, its findings). A pure function applies the spec's rule. The same function, given one extra supplier, produces the preview.
+- **Rejected:** Putting the rule in SQL (harder to test, and the preview becomes a second query), and calculating in the browser (the rule would live in two places).
+- **Consequence:** The rule is in exactly one place and unit-testable. It is read-time work on a few thousand rows, fine now. If it becomes slow, the calculator stays and only the fetching changes.
+
+## D13: Show the consequence before flagging, and make undo easy
+
+- **Decision:** The flag dialog says how many toys would become Affected or Possibly affected. After a flag, a message offers Undo. The supplier detail view lists the toys a supplier reaches.
+- **Rejected:** A bare confirm dialog, and no undo until the user finds Withdraw.
+- **Consequence:** The user sees the effect before it happens. The cost is one endpoint field (`exposureIfFlagged`). If time runs short this is cut first ([ux.md](ux.md)).
+
+## D14: Stack: FastAPI, SQLite, React with TypeScript
+
+- **Decision:** FastAPI for the API, SQLite for storage, React with TypeScript and Vite for the UI.
+- **Rejected:** PostgreSQL in Docker (more to install for a few thousand rows and one writer, and a container needed just to run it).
+- **Consequence:** Runs with a Python environment and Node. SQLite would be replaced if there were several writers.
+
+## D15: Two screens plus a trace, with exposure never shown as safe
+
+- **Decision:** Toys and Suppliers are the two screens. A toy opens a trace with its exposed parts first and the rest collapsed. The Finisher is in the top bar and in the URL. "No finding in its chain" is neutral grey. Every status has a word, a symbol and a color.
+- **Rejected:** A dashboard of charts (the answer is three counts and a list), and green for "no finding" (it reads as safe).
+- **Consequence:** The UI follows the user's jobs in [ux.md](ux.md).
+

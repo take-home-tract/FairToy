@@ -97,14 +97,14 @@ Out of scope:
 - Entering or loading data (upload, forms, import). The data is assumed to be in place.
 - Shipped units, batches, dates and orders. We have no data for them, so we cannot say which units already sold are tainted.
 - Order halting or resuming, recall tracking, remediation, and a finding lifecycle.
-- Sharing anything between Finishers.
+- Sharing findings between Finishers.
 
 ## Extension points (not built now)
 
 - **Data entry.** Finishers entering or uploading their own suppliers, parts and toys. The assignment lists it in the company description but not in the task, so we start from data already in place.
 - **Purchase records.** Resolving a possibly-affected toy means checking which supplier actually delivered. We have no purchase data, so this could live in a separate system that feeds the app later.
 - **Basic Materials.** They sell raw materials to suppliers, one level below them. The data has no companies and no supplier-to-material or part-to-material link, so there is no traceability. See [D7](decisions.md#d7-basic-materials-and-purchase-records-are-out-of-scope).
-- **Finding lifecycle.** Real programs go further than recording a finding: protect the child, recall, run a corrective action plan, verify, then clear, keeping an audit trail. We do not build this. Withdrawing is where it will attach: "recorded by mistake" and "cleared after remediation" become different outcomes. Sources (read as summaries, termination policies not reviewed):
+- **Finding lifecycle.** Real programs go further than recording a finding: protect the child, recall, run a corrective action plan, verify, then clear, keeping an audit trail. We do not build this. Withdrawing is where it will attach: "recorded by mistake" and "cleared after remediation" become different outcomes. Background reading on how remediation works in practice:
   - [ETI: Advice to companies ending child labour](https://www.ethicaltrade.org/insights/blog/advice-to-companies-ending-child-labour)
   - [US Department of Labor: Step 6, Remediate violations](https://www.dol.gov/agencies/ilab/SourceRight/steps-to-a-due-diligence-system/step-6-remediate-violations)
   - [Ethical Toy Program: Remediation program for suppliers](https://www.ethicaltoyprogram.org/en/remediationprogram-suppliers/)
