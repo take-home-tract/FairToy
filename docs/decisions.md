@@ -120,3 +120,15 @@ A short log of the choices that shape FairToy. Each entry says what we decided, 
 - **Decision:** The backend talks to SQLite with Python's built-in `sqlite3` module and hand-written SQL. The project and its Python version are managed by uv. Tests use pytest and run the seed on the real sample data in a temporary folder. The seed is a command (`python -m app.seed`), not something the API does at startup.
 - **Rejected:** An ORM such as SQLAlchemy (there are six small tables, a handful of queries and two writes, and one database file per Finisher means managing one engine per file for no gain). Seeding automatically on first start (a missing database would be recreated silently, which could hide a wrong path and look like a Finisher with no data).
 - **Consequence:** Every query is visible as SQL in one module. Connections are opened in one function, which sets the foreign-key pragma and refuses to create a missing file. Someone running the app needs uv and, for the UI, Node.
+
+## D19: Frontend libraries: React Router, TanStack Query, plain CSS
+
+- **Decision:** React Router gives each screen its own URL and keeps the toy filter in the address. TanStack Query fetches and caches server data and refetches it after a change. Styling is one plain CSS file with variables for the status colors. The Vite dev server passes `/api` on to the Python API, so the browser sees one origin.
+- **Rejected:** A global state store (there is no client state worth one: the server is the source of truth). A component or CSS framework (three screens and one badge do not need it, and it is more to install and explain). Calling the API on another origin with CORS (more configuration for no gain locally).
+- **Consequence:** Four runtime dependencies. Signing in or out empties the query cache, so nothing loaded for one user can be shown to the next.
+
+## D20: The UI is tested end to end in a real browser
+
+- **Decision:** The frontend tests are Playwright tests that sign in and use the app in a real browser, against the real API seeded with the sample data. They start their own API and UI on separate ports with a temporary data folder. Each test begins by withdrawing all findings.
+- **Rejected:** Component tests with a faked API as the main safety net. The UI holds almost no rules of its own (the exposure rule and isolation live in the backend and are tested there), so what can break is the wiring: sign-in, the token, the URLs, and what the screen shows for real data. A fake API would not catch that.
+- **Consequence:** One command checks the whole stack the way a user meets it, including the numbers in [ux.md](ux.md). The cost is a browser download and a slower run than unit tests, and the tests run one at a time because they share one API.

@@ -15,11 +15,11 @@ Submission for the TRACT take-home test: a Finisher-facing tool to flag a suppli
 
 ## Running it
 
-Work in progress: the API is complete. The UI follows.
+Work in progress: the API is complete, and the UI has sign-in and the Toys page so far.
 
-You need [uv](https://docs.astral.sh/uv/getting-started/installation/), which also installs the right Python for you.
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/), which also installs the right Python for you, and [Node.js](https://nodejs.org/) 22.22 or newer.
 
-From the `backend` folder:
+**1. The API.** From the `backend` folder:
 
 ```sh
 uv run pytest                           # run the tests
@@ -27,8 +27,28 @@ uv run python -m app.seed               # create the databases in backend/data (
 uv run uvicorn app.main:app --reload    # start the API on http://localhost:8000
 ```
 
-The seed prints one line per Finisher with its username, for example `kestrel-play`. Every demo user has the password `fairtoy-demo`. The seed refuses to run twice; to start over, delete `backend/data`.
+**2. The UI.** In a second terminal, from the `frontend` folder:
 
-The API documents itself at http://localhost:8000/docs.
+```sh
+npm install
+npm run dev                             # start the UI on http://localhost:5173
+```
 
-Sign-in tokens are signed with the secret in the `FAIRTOY_SECRET` environment variable. If it is not set, the API makes a random one at startup, so everyone is signed out when it restarts.
+**3. The UI tests** (optional). They drive a real browser against the real UI and API. They start their own API and UI on other ports with a temporary copy of the data, so they never touch yours and nothing needs to be running. From the `frontend` folder:
+
+```sh
+npx playwright install chromium         # download the test browser (once)
+npm test                                # run the end-to-end tests
+```
+
+Open http://localhost:5173 and sign in.
+
+### Demo users
+
+The seed creates one user per Finisher and prints the list. The username is the Finisher's name in lower case with hyphens, for example `kestrel-play` or `moonpath-brands`. Every demo user has the password `fairtoy-demo`.
+
+### Good to know
+
+- The seed refuses to run twice, so recorded findings are never wiped. To start over, delete `backend/data`.
+- The API documents itself at http://localhost:8000/docs.
+- Sign-in tokens are signed with the secret in the `FAIRTOY_SECRET` environment variable. If it is not set, the API makes a random one at startup, so everyone is signed out when it restarts.
