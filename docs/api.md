@@ -6,7 +6,7 @@ The contract between the React app and the Python API. It serves the screens in 
 
 - JSON over HTTP, all paths under `/api`.
 - Every endpoint except login needs `Authorization: Bearer <token>`. The Finisher is taken from the signed-in user, never from the path, the query or the body ([D11](decisions.md#d11-the-api-is-scoped-by-the-signed-in-user-and-findings-are-an-idempotent-sub-resource), [D16](decisions.md#d16-authentication-seeded-users-and-a-signed-token)).
-- Ids in paths are the internal numeric ids from the data model and are unrelated to codes. `code` is the source reference shown on screen.
+- Ids in paths are the internal numeric ids from the data model and are unrelated to codes. They only mean something inside one Finisher: the same id names a different record for another Finisher ([D17](decisions.md#d17-isolation-is-structural-one-database-per-finisher)). `code` is the source reference shown on screen.
 - Exposure values: `affected`, `possibly_affected`, `no_finding`.
 - Times are ISO 8601 in UTC.
 - Exposure is computed on every read and never stored ([D5](decisions.md#d5-exposure-is-computed-never-stored)).
@@ -73,12 +73,12 @@ Parts are sorted with exposed parts first. Each part lists every possible source
 {
   "toy": { "id": 163, "code": "TOY-0029", "name": "Lantern Crane", "exposure": "possibly_affected" },
   "parts": [
-    { "id": 117, "code": "PRT-0117", "name": "soft filling", "exposure": "possibly_affected",
+    { "id": 204, "code": "PRT-0117", "name": "soft filling", "exposure": "possibly_affected",
       "sources": [
-        { "supplier": { "id": 28, "name": "Lianfa Group", "country": "Turkey" },
+        { "supplier": { "id": 31, "name": "Lianfa Group", "country": "Turkey" },
           "factory": { "name": "Lianfa Group — Cavite Plant", "country": "Philippines" },
           "hasFinding": true },
-        { "supplier": { "id": 19, "name": "Everstar Fabrication", "country": "Poland" },
+        { "supplier": { "id": 12, "name": "Everstar Fabrication", "country": "Thailand" },
           "factory": { "name": "Everstar Fabrication — Katowice Plant", "country": "Poland" },
           "hasFinding": false }
       ] }
@@ -95,9 +95,9 @@ Only the Finisher's own suppliers are returned. `toysReached` is how many of its
 ```json
 {
   "suppliers": [
-    { "id": 28, "code": "SUP-028", "name": "Lianfa Group", "country": "Turkey",
+    { "id": 31, "code": "SUP-028", "name": "Lianfa Group", "country": "Turkey",
       "toysReached": 22, "finding": { "recordedAt": "2026-11-10T14:02:11Z", "recordedBy": "kestrel-play" } },
-    { "id": 35, "code": "SUP-035", "name": "Sanhe Precision", "country": "Poland",
+    { "id": 38, "code": "SUP-035", "name": "Sanhe Precision", "country": "Poland",
       "toysReached": 27, "finding": null }
   ]
 }
@@ -109,7 +109,7 @@ Returns each reached toy twice, as it is now and as it would be with a finding. 
 
 ```json
 {
-  "supplier": { "id": 28, "code": "SUP-028", "name": "Lianfa Group", "country": "Turkey", "finding": null },
+  "supplier": { "id": 31, "code": "SUP-028", "name": "Lianfa Group", "country": "Turkey", "finding": null },
   "toys": [
     { "id": 187, "code": "TOY-0290", "name": "Marble Digger",
       "exposureNow": "no_finding", "exposureIfFlagged": "affected" }
@@ -121,13 +121,10 @@ Returns each reached toy twice, as it is now and as it would be with a finding. 
 
 - `PUT` records a finding. No body. `DELETE` withdraws it.
 - Both are **idempotent**: recording twice or withdrawing twice is not an error and changes nothing the second time.
-- Both return the new finding state and the new toy totals, so the UI can show the message and refresh without extra calls.
+- Both return the new finding state. The UI then refetches the lists it is showing, so the server stays the only source of truth ([design.md](design.md)).
 
 ```json
-{
-  "finding": { "recordedAt": "2026-11-10T14:02:11Z", "recordedBy": "kestrel-play" },
-  "summary": { "total": 40, "affected": 13, "possiblyAffected": 9, "noFinding": 18 }
-}
+{ "finding": { "recordedAt": "2026-11-10T14:02:11Z", "recordedBy": "kestrel-play" } }
 ```
 
 After `DELETE`, `finding` is `null`.
@@ -138,14 +135,17 @@ After `DELETE`, `finding` is `null`.
 { "error": { "code": "supplier_not_found", "message": "No such supplier for this Finisher." } }
 ```
 
+Every error uses this shape, including the framework's own validation errors, through one error handler.
+
 | Status | Code | When |
 |---|---|---|
 | 401 | `invalid_credentials` | Wrong username or password at login |
 | 401 | `not_authenticated` | Missing, invalid or expired token |
 | 404 | `toy_not_found` | Unknown toy, or a toy of another Finisher |
 | 404 | `supplier_not_found` | Unknown supplier, or a supplier of another Finisher |
+| 422 | `invalid_request` | A malformed request, for example an id that is not a number |
 
-Isolation: another Finisher's toy or supplier answers 404, the same as one that does not exist, so nothing leaks. Every record belongs to one Finisher, so a user can never see, flag or withdraw anything outside their own ([D2](decisions.md#d2-all-of-a-finishers-data-belongs-to-it)).
+Isolation: a request only ever opens the database of the signed-in user's Finisher ([D17](decisions.md#d17-isolation-is-structural-one-database-per-finisher)). Another Finisher's toy or supplier does not exist there, so it answers 404 like any unknown id and nothing leaks. A user can never see, flag or withdraw anything outside their own Finisher ([D2](decisions.md#d2-all-of-a-finishers-data-belongs-to-it)).
 
 ## Not in the API
 

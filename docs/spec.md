@@ -4,7 +4,7 @@ What FairToy must do and why. No technology here: see [design.md](design.md) for
 
 ## The problem
 
-Retailers will not sell toys made with child labor, anywhere in the chain. When a Finisher learns that one of its providers uses child labor, it must halt orders from that provider until the affected toys are recalled. To do that, the Finisher first needs to answer one question quickly: **which of my toys are exposed, and why?** The answer is buried in flat exports of suppliers, factories, parts and bills of materials.
+Retailers will not sell toys made with child labor. When a Finisher learns that one of its suppliers uses child labor, it must halt orders from that supplier until the affected toys are recalled. To do that, the Finisher first needs to answer one question quickly: **which of my toys are exposed, and why?** The answer is buried in flat exports of suppliers, factories, parts and bills of materials.
 
 FairToy is a SaaS platform for **Finishers**. They input their suppliers, parts and toys, flag a supplier for child labor, and see which toys are affected, traceable back to the flagged supplier.
 
@@ -18,12 +18,14 @@ Our user works for a Finisher. Risk flows **up** the chain: a provider found usi
 
 ## Facts from the assignment
 
-1. Retailers will not sell a toy if any part of its chain used child labor.
-2. If a Finisher's Supplier or Basic Materials provider is found to use child labor, the Finisher halts all orders from it until the affected toys are recalled.
+1. Retailers will not sell toys produced using child labor.
+2. If a Finisher's supplier is found to use child labor, the Finisher halts all orders from that supplier until the affected toys are recalled.
 3. FairToy's job: let Finishers input suppliers, parts and toys, flag a supplier, and see which toys are affected.
 4. Minimum bar: see toys and their toy-part-supplier relations; flag a supplier; see affected toys traced from the toy back through its parts to the flagged supplier. Extra functionality is welcome.
 5. Authentication (added by TRACT on 10 Nov 2026): a user belongs to one Finisher and must only see and act on that Finisher's data. Users are seeded per Finisher. No sign up, password reset, roles or third-party identity providers. Any session or token approach is fine. What is assessed is that the API enforces data isolation, not the login flow.
 6. Out of scope: deployment, real-time updates, notifications.
+
+Our own reading, not stated in the assignment: the same rule would apply to a Basic Materials company further down the chain. The data has none, so this stays an extension point.
 
 ## Facts from the data
 
@@ -31,7 +33,7 @@ Our user works for a Finisher. Risk flows **up** the chain: a provider found usi
 - 22 parts list **two possible sources** (different supplier, factory and cost). The BOM does not say which one made a given part.
 - 5 toy IDs appear under two Finishers with different price and volume.
 - The export combines all eight Finishers in one set of files, so the same part and supplier codes are used by the toys of several Finishers. A Finisher's own parts and suppliers are the ones its toys use.
-- One supplier typically reaches about half of a Finisher's toys. For a Finisher with 36 toys, a single supplier makes a median of 18 of them affected (up to 27). Each Finisher reaches 49 of the 50 suppliers.
+- One supplier typically reaches about half of a Finisher's toys. For a Finisher with 36 toys, a single supplier makes a median of 18 of them affected (up to 27). Each Finisher reaches 49 of the 50 suppliers. The fiftieth, SUP-038 (Sunrise Group), has no factories and makes no part, so it is in no Finisher's chain and cannot be flagged.
 - 6 factories have no city or address.
 - There is no data on Basic Materials, Retailers, purchases or orders.
 
@@ -52,7 +54,7 @@ Our user works for a Finisher. Risk flows **up** the chain: a provider found usi
 
 ## Ownership
 
-A user signs in and belongs to one Finisher. They see and act on that Finisher's data only, and the API enforces this on every request ([D16](decisions.md#d16-authentication-seeded-users-and-a-signed-token)). **All of a Finisher's data belongs to it alone**: its toys, its parts, its suppliers and its findings. Nothing is shared between Finishers, and no Finisher can see that another uses the same supplier. See [D1](decisions.md#d1-one-finishers-viewpoint) and [D2](decisions.md#d2-all-of-a-finishers-data-belongs-to-it).
+A user signs in and belongs to one Finisher. They see and act on that Finisher's data only, and the API enforces this on every request ([D16](decisions.md#d16-authentication-seeded-users-and-a-signed-token)). **All of a Finisher's data belongs to it alone**: its toys, its parts, its suppliers and its findings. Nothing is shared between Finishers, and no Finisher can see that another uses the same supplier. Each Finisher's data is kept in its own database, so isolation does not depend on every query remembering a filter ([D17](decisions.md#d17-isolation-is-structural-one-database-per-finisher)). See [D1](decisions.md#d1-one-finishers-viewpoint) and [D2](decisions.md#d2-all-of-a-finishers-data-belongs-to-it).
 
 ## Exposure
 

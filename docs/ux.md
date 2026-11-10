@@ -32,7 +32,7 @@ Maria works at Kestrel Play. A report names Lianfa Group.
 1. She opens FairToy and signs in as `kestrel-play`. The top bar shows **Kestrel Play**, her Finisher. She sees nothing of any other Finisher.
 2. She opens **Suppliers** and searches "Lianfa".
 3. She presses **Flag supplier**. A dialog says: *22 toys reach this supplier. 13 would become Affected, 9 Possibly affected.*
-4. She confirms. A message says *Lianfa Group flagged. 22 toys changed.* with an **Undo** link.
+4. She confirms. A message says *Lianfa Group flagged.* with an **Undo** link.
 5. She opens **Toys**, filtered to Affected. 13 toys are listed.
 6. She opens **Marble Digger**. It says: *Affected. The part "wheel" can only come from Lianfa Group, which you flagged.* One more part, "zip fastener", is only possibly affected.
 7. She opens **Lantern Crane**. It says: *Possibly affected. "soft filling" can come from Lianfa Group (flagged) or Everstar Fabrication. We cannot tell which was used. Check your purchase records.*
@@ -94,7 +94,7 @@ A possibly affected toy shows the alternative:
 ```text
   soft filling  PRT-0117                                   ~ Possibly affected
     Lianfa Group (Turkey) — Cavite Plant, Philippines     [Finding]
-    Everstar Fabrication (Poland) — Katowice Plant, Poland
+    Everstar Fabrication (Thailand) — Katowice Plant, Poland
   We cannot tell which supplier made it. Check your purchase records.
 ```
 
