@@ -342,3 +342,247 @@ tbody tr:last-child td {
 .state-error {
   border-color: var(--affected);
 }
+
+/* Detail pages */
+h2 {
+  font-size: 1.05rem;
+  margin: 1.5rem 0 0.6rem;
+}
+
+.back {
+  margin: 0 0 0.5rem;
+}
+
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.title-row h1 {
+  margin: 0;
+}
+
+.title-row .code {
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.toolbar h1 {
+  margin: 0;
+}
+
+.why {
+  margin: 0.5rem 0 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+td.action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tag-finding {
+  display: inline-block;
+  margin: 0 0.3rem;
+  padding: 0 0.45rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--affected);
+}
+
+td .tag-finding:first-child {
+  margin-left: 0;
+}
+
+/* Toy trace */
+.parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.part {
+  padding: 0.7rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.part-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sources {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.sources li {
+  margin: 0.15rem 0;
+}
+
+.part-help {
+  margin: 0.4rem 0 0;
+  color: var(--possibly);
+}
+
+.other-parts {
+  margin-top: 1.5rem;
+}
+
+.other-parts summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+
+/* Flag dialog */
+.dialog {
+  width: min(460px, calc(100vw - 2rem));
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  /* The dialog can sit inside a right-aligned table cell: do not inherit that. */
+  text-align: left;
+  white-space: normal;
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+.dialog h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.dialog p {
+  margin: 0 0 0.6rem;
+}
+
+.preview ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.2rem;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+button.danger {
+  background: var(--affected);
+  border-color: var(--affected);
+  color: #fff;
+}
+
+/* Confirmation at the bottom, with Undo */
+.notice {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 2rem);
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  background: var(--text);
+  color: #fff;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+}
+
+.notice .link-button {
+  color: #fff;
+  font-weight: 700;
+}
+
+.notice .notice-close {
+  text-decoration: none;
+  font-weight: 400;
+}
+
+/* "only source": the supplier a toy cannot do without for a part */
+.only-source {
+  display: inline-block;
+  padding: 0 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* What a finding does, or would do */
+.impact {
+  margin: 1rem 0 0;
+  padding: 0.8rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--muted);
+  border-radius: 8px;
+}
+
+.impact-flagged {
+  border-left-color: var(--affected);
+}
+
+.impact p {
+  margin: 0 0 0.3rem;
+}
+
+.impact ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+/* Toy trace: summary and view switch */
+.chain-toolbar {
+  align-items: center;
+  margin: 1.25rem 0 0;
+}
+
+.chain-summary {
+  margin: 0;
+  color: var(--muted);
+}
+
+.group-help {
+  margin: -0.3rem 0 0.6rem;
+}
+
+td {
+  vertical-align: top;
+}
+
+td .sources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

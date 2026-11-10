@@ -19,6 +19,13 @@ class Facts:
     # ids of the suppliers with a finding
     implicated: set[int] = field(default_factory=set)
 
+    def suppliers_of_part(self) -> dict[int, set[int]]:
+        """part id -> ids of the suppliers that can make it (every part is used by some toy)."""
+        result: dict[int, set[int]] = {}
+        for parts in self.parts_of_toy.values():
+            result.update(parts)
+        return result
+
 
 def load_facts(db: sqlite3.Connection) -> Facts:
     """One pass over the links: a few thousand rows per Finisher (D12)."""
@@ -87,6 +94,23 @@ def list_suppliers(db: sqlite3.Connection) -> list[sqlite3.Row]:
 
 def get_supplier(db: sqlite3.Connection, supplier_id: int) -> sqlite3.Row | None:
     return db.execute(_SUPPLIER_WITH_FINDING + "WHERE s.id = ?", (supplier_id,)).fetchone()
+
+
+def supplier_names(db: sqlite3.Connection) -> dict[int, str]:
+    return {row["id"]: row["name"] for row in db.execute("SELECT id, name FROM supplier")}
+
+
+def list_parts_of_supplier(db: sqlite3.Connection, supplier_id: int) -> list[sqlite3.Row]:
+    """Each part the supplier can make, once per factory it makes it at."""
+    return db.execute(
+        """
+        SELECT p.id, p.code, p.name, ps.factory_name, ps.factory_country
+        FROM part_source ps JOIN part p ON p.id = ps.part_id
+        WHERE ps.supplier_id = ?
+        ORDER BY p.name COLLATE NOCASE, p.code, ps.factory_name
+        """,
+        (supplier_id,),
+    ).fetchall()
 
 
 # --- the two writes ---

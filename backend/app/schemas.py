@@ -62,6 +62,11 @@ class ToySummary(ApiModel):
     no_finding: int
 
 
+class SupplierRef(ApiModel):
+    id: int
+    name: str
+
+
 class ToyListItem(ApiModel):
     id: int
     code: str
@@ -69,6 +74,8 @@ class ToyListItem(ApiModel):
     exposure: Exposure
     parts_touched: int
     part_count: int
+    # The suppliers with a finding that can make one of the toy's parts.
+    flagged_suppliers: list[SupplierRef]
 
 
 class ToysResponse(ApiModel):
@@ -121,6 +128,7 @@ class SupplierListItem(ApiModel):
     code: str
     name: str
     country: str
+    part_count: int  # how many of the Finisher's parts this supplier can make
     toys_reached: int
     finding: FindingOut | None
 
@@ -137,14 +145,27 @@ class SupplierOut(ApiModel):
     finding: FindingOut | None
 
 
+class SupplierPart(ApiModel):
+    """A part this supplier can make for the Finisher."""
+
+    id: int
+    code: str
+    name: str
+    factories: list[TraceFactory]  # where this supplier makes it
+    other_suppliers: list[SupplierRef]  # empty: this supplier is the only source
+    toy_count: int  # how many toys use the part
+
+
 class ReachedToy(ApiModel):
     id: int
     code: str
     name: str
     exposure_now: Exposure
     exposure_if_flagged: Exposure
+    part_ids: list[int]  # the parts (from `parts`) that connect the toy to this supplier
 
 
 class SupplierDetailResponse(ApiModel):
     supplier: SupplierOut
+    parts: list[SupplierPart]
     toys: list[ReachedToy]

@@ -53,14 +53,15 @@ Signing out is done in the browser by discarding the token.
 
 ### GET /api/toys
 
-Sorted by exposure (affected first), then name. `partsTouched` is how many of the toy's parts have at least one implicated supplier.
+Sorted by exposure (affected first), then name. `partsTouched` is how many of the toy's parts have at least one implicated supplier. `flaggedSuppliers` names the implicated suppliers that can make one of the toy's parts; it is empty for a toy with no finding.
 
 ```json
 {
   "summary": { "total": 40, "affected": 13, "possiblyAffected": 9, "noFinding": 18 },
   "toys": [
     { "id": 187, "code": "TOY-0290", "name": "Marble Digger",
-      "exposure": "affected", "partsTouched": 2, "partCount": 22 }
+      "exposure": "affected", "partsTouched": 2, "partCount": 22,
+      "flaggedSuppliers": [{ "id": 31, "name": "Lianfa Group" }] }
   ]
 }
 ```
@@ -90,29 +91,42 @@ The UI builds the "why" sentence from `exposure` and `sources`; the API sends no
 
 ### GET /api/suppliers
 
-Only the Finisher's own suppliers are returned. `toysReached` is how many of its toys use a part this supplier can make.
+Only the Finisher's own suppliers are returned. `partCount` is how many of the Finisher's parts this supplier can make, and `toysReached` is how many of its toys use one of them.
 
 ```json
 {
   "suppliers": [
     { "id": 31, "code": "SUP-028", "name": "Lianfa Group", "country": "Turkey",
-      "toysReached": 22, "finding": { "recordedAt": "2026-11-10T14:02:11Z", "recordedBy": "kestrel-play" } },
+      "partCount": 8, "toysReached": 22, "finding": { "recordedAt": "2026-11-10T14:02:11Z", "recordedBy": "kestrel-play" } },
     { "id": 38, "code": "SUP-035", "name": "Sanhe Precision", "country": "Poland",
-      "toysReached": 27, "finding": null }
+      "partCount": 9, "toysReached": 27, "finding": null }
   ]
 }
 ```
 
 ### GET /api/suppliers/{supplierId}
 
-Returns each reached toy twice, as it is now and as it would be with a finding. This feeds both the detail view and the flag dialog's preview. If a finding already exists, the two values are equal.
+Returns the parts this supplier can make for the Finisher, and the toys it reaches through them.
+
+- `parts`: each part with the factories where this supplier makes it, the other suppliers that can make it (`otherSuppliers`, empty when this supplier is the only source), and how many toys use it.
+- `toys`: each reached toy twice, as it is now and as it would be with a finding, plus `partIds`: the parts from `parts` that connect it to this supplier. If a finding already exists, the two exposure values are equal.
+
+This feeds the detail view and the flag dialog's preview.
 
 ```json
 {
   "supplier": { "id": 31, "code": "SUP-028", "name": "Lianfa Group", "country": "Turkey", "finding": null },
+  "parts": [
+    { "id": 213, "code": "PRT-0223", "name": "wheel",
+      "factories": [{ "name": "Lianfa Group — Cavite Plant", "country": "Philippines" }],
+      "otherSuppliers": [], "toyCount": 3 },
+    { "id": 43, "code": "PRT-0044", "name": "zip fastener",
+      "factories": [{ "name": "Lianfa Group — Rayong Plant", "country": "Thailand" }],
+      "otherSuppliers": [{ "id": 12, "name": "Pacific Precision" }], "toyCount": 6 }
+  ],
   "toys": [
     { "id": 187, "code": "TOY-0290", "name": "Marble Digger",
-      "exposureNow": "no_finding", "exposureIfFlagged": "affected" }
+      "exposureNow": "no_finding", "exposureIfFlagged": "affected", "partIds": [213, 43] }
   ]
 }
 ```

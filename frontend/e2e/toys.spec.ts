@@ -48,6 +48,25 @@ test('after a finding against Lianfa Group: 13 affected, 9 possibly affected, 18
   await expect(marbleDigger).toContainText('2 of 22')
 })
 
+test('each exposed toy names the flagged suppliers in its chain', async ({ page, request }) => {
+  await flagSupplier(request, KESTREL, 'Lianfa Group')
+  await flagSupplier(request, KESTREL, 'Lianfa Fabrication')
+  await openSignedIn(page, KESTREL)
+
+  // Lantern Crane is reached by both; the names lead to the supplier.
+  const lanternCrane = page.locator('tbody tr', { hasText: 'Lantern Crane' })
+  await expect(lanternCrane.getByRole('link', { name: 'Lianfa Fabrication' })).toBeVisible()
+  await expect(lanternCrane.getByRole('link', { name: 'Lianfa Group' })).toBeVisible()
+
+  // A toy with no finding names none.
+  await page.getByRole('button', { name: /^No finding/ }).click()
+  await expect(page.locator('tbody tr').first().locator('td').nth(3)).toHaveText('None')
+
+  await page.getByRole('button', { name: /^All/ }).click()
+  await lanternCrane.getByRole('link', { name: 'Lianfa Group' }).click()
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Lianfa Group SUP-028')
+})
+
 test('the exposure filter narrows the list, lives in the URL and survives a refresh', async ({ page, request }) => {
   await flagSupplier(request, KESTREL, 'Lianfa Group')
   await openSignedIn(page, KESTREL)

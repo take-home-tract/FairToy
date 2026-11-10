@@ -3,6 +3,9 @@ import { useAuth } from './auth'
 import { AppShell } from './components/AppShell'
 import { EmptyState } from './components/States'
 import { LoginPage } from './pages/LoginPage'
+import { SupplierDetailPage } from './pages/SupplierDetailPage'
+import { SuppliersPage } from './pages/SuppliersPage'
+import { ToyTracePage } from './pages/ToyTracePage'
 import { ToysPage } from './pages/ToysPage'
 
 // No URL names a Finisher: it always comes from the sign-in (docs/ux.md).
@@ -13,6 +16,9 @@ export function App() {
       <Route element={<SignedIn />}>
         <Route path="/" element={<Navigate to="/toys" replace />} />
         <Route path="/toys" element={<ToysPage />} />
+        <Route path="/toys/:toyId" element={<ToyTracePage />} />
+        <Route path="/suppliers" element={<SuppliersPage />} />
+        <Route path="/suppliers/:supplierId" element={<SupplierDetailPage />} />
         <Route path="*" element={<EmptyState title="Page not found" />} />
       </Route>
     </Routes>

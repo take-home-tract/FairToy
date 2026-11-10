@@ -61,11 +61,13 @@ FairToy   Kestrel Play · kestrel-play  [Sign out]     Toys | Suppliers
 
 [ All 40 ] [ Affected 13 ] [ Possibly affected 9 ] [ No finding 18 ]   [ Search toys... ]
 
-Toy              Code       Exposure              Parts touched
-Marble Digger    TOY-0290   x Affected            2 of 22
-Lantern Crane    TOY-0029   ~ Possibly affected   1 of 44
-Saffron Kitchen  TOY-0136   - No finding          0 of 48
+Toy              Code       Exposure              Flagged suppliers in its chain   Parts touched
+Marble Digger    TOY-0290   x Affected            Lianfa Group                     2 of 22
+Lantern Crane    TOY-0029   ~ Possibly affected   Lianfa Group                     1 of 44
+Saffron Kitchen  TOY-0136   - No finding          None                             0 of 48
 ```
+
+Each exposed toy names the flagged suppliers behind it, so the list already answers "because of whom?". The names lead to the supplier.
 
 Sorted by exposure (affected first), then name. With no findings recorded, a banner reads *No findings recorded yet. Flag a supplier to see which toys it reaches.*
 
@@ -98,20 +100,62 @@ A possibly affected toy shows the alternative:
   We cannot tell which supplier made it. Check your purchase records.
 ```
 
-Parts touched by a finding come first and are open. Parts with no finding are collapsed, since a toy has dozens of parts (a median of 35 in the sample data).
+Parts touched by a finding come first and are open. Parts with no finding are collapsed into a compact table, since a toy has dozens of parts (a median of 35 in the sample data). With no finding at all, the table is open.
+
+Above the chain, one sentence sums it up (*22 parts from 20 suppliers. 18 parts have a single possible supplier, 4 can come from more than one.*), and a switch offers a second reading of the same chain, **By supplier**:
+
+```text
+Flagged (1)
+  Lianfa Group (Turkey) [Finding]    wheel PRT-0223 [only source]              [Withdraw finding]
+                                     zip fastener PRT-0044 or Pacific Precision
+
+Only source of a part (15)           A finding against one of these would make this toy Affected.
+  Aequs Fabrication (China)          axle assembly PRT-0246 [only source]      [Flag supplier]
+  ...
+
+One of several sources (4)           A finding against one of these would make this toy Possibly affected.
+  Pacific Precision (Vietnam)        zip fastener PRT-0044 or Lianfa Group     [Flag supplier]
+```
+
+This answers "who is behind this toy, and whom can it not do without?" before anything is flagged, and a supplier can be flagged from here. The chosen view is kept in the URL.
 
 ### Suppliers
 
 ```text
-Your suppliers (49)                         [ Search suppliers... ]
+Your suppliers
+[ All 49 ] [ With a finding 1 ]                          [ Search suppliers... ]
 
-Supplier          Country   Toys reached   Finding
-Lianfa Group      Turkey    22             [Finding] 10 Nov 2026    [Withdraw]
-                                           by kestrel-play
-Sanhe Precision   Poland    27             None                     [Flag supplier]
+Supplier          Country   Parts it can make   Toys reached   Finding
+Lianfa Group      Turkey    8                   22             [Finding] 10 Nov 2026    [Withdraw]
+                                                               by kestrel-play
+Sanhe Precision   Poland    9                   27             None                     [Flag supplier]
 ```
 
-A row opens a detail view listing the toys the supplier reaches, with each toy's exposure now.
+### Supplier detail
+
+A row opens the supplier. The page is for someone deciding whether to flag it, or checking what a finding did, so it leads with the consequence and then shows the evidence:
+
+```text
+< Suppliers    Lianfa Group  SUP-028                               [Flag supplier]
+Headquarters: Turkey · Finding: None
+
+If you flag this supplier, of the 22 toys it reaches:
+  13 would become Affected: it is the only source of a part they use
+   9 would become Possibly affected: another supplier can make the part too
+
+Parts it can make for you (8)
+Part                    Made at                      Other possible suppliers   Used in
+wheel PRT-0223          Cavite Plant, Philippines    None: only source          3 toys
+soft filling PRT-0117   Cavite Plant, Philippines    Everstar Fabrication       7 toys
+
+Toys it reaches (22)
+Toy                       Through these parts                  Exposure now   If flagged
+Marble Digger TOY-0290    wheel [only source]                  - No finding   x Affected
+                          zip fastener or Pacific Precision
+Lantern Crane TOY-0029    soft filling or Everstar Fabrication - No finding   ~ Possibly affected
+```
+
+Once the supplier is flagged, the panel reads *You flagged this supplier* with the current counts, and the "If flagged" column is dropped.
 
 ### Flag confirmation
 

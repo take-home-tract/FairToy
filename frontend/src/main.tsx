@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router'
 import { ApiError } from './api'
 import { App } from './App'
 import { AuthProvider } from './auth'
+import { NoticeProvider } from './notice'
 import './styles.css'
 
 // The server is the source of truth: data is refetched whenever a page is
@@ -23,7 +24,9 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          <NoticeProvider>
+            <App />
+          </NoticeProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

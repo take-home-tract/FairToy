@@ -60,3 +60,13 @@ export async function summaryCounts(page: Page): Promise<number[]> {
   await expect(page.locator('.summary dd')).toHaveCount(4)
   return (await page.locator('.summary dd').allTextContents()).map(Number)
 }
+
+/** The row of a supplier in the Suppliers table, by its code (names can share a prefix). */
+export function supplierRow(page: Page, code: string) {
+  return page.locator('tbody tr', { hasText: code })
+}
+
+/** Today as the UI shows dates: "10 Nov 2026". */
+export function todayAsShown(): string {
+  return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}

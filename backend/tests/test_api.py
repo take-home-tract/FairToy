@@ -45,7 +45,8 @@ def test_with_no_findings_every_toy_has_no_finding_and_is_sorted_by_name(client,
     assert {t["partsTouched"] for t in body["toys"]} == {0}
     names = [t["name"].lower() for t in body["toys"]]
     assert names == sorted(names)
-    assert set(body["toys"][0]) == {"id", "code", "name", "exposure", "partsTouched", "partCount"}
+    assert {tuple(t["flaggedSuppliers"]) for t in body["toys"]} == {()}
+    assert set(body["toys"][0]) == {"id", "code", "name", "exposure", "partsTouched", "partCount", "flaggedSuppliers"}
 
 
 # --- 2. each toy shows its parts, and each part its possible sources ---
@@ -136,7 +137,68 @@ def test_flagging_the_alternative_too_turns_possibly_into_affected(client, kestr
     assert toy_coded(client, kestrel, "TOY-0029")["exposure"] == "affected"
 
 
-# --- the preview (supplier detail) ---
+def test_the_toy_list_names_the_flagged_suppliers_in_each_toys_chain(client, kestrel):
+    lianfa = flag(client, kestrel, "Lianfa Group")
+    toys = client.get("/api/toys", headers=kestrel).json()["toys"]
+    for toy in toys:
+        expected = [] if toy["exposure"] == "no_finding" else [{"id": lianfa["id"], "name": "Lianfa Group"}]
+        assert toy["flaggedSuppliers"] == expected
+
+    # A second finding: toys reached by both name both, sorted by name.
+    flag(client, kestrel, "Lianfa Fabrication")
+    toys = client.get("/api/toys", headers=kestrel).json()["toys"]
+    names = {tuple(s["name"] for s in toy["flaggedSuppliers"]) for toy in toys}
+    assert names == {(), ("Lianfa Group",), ("Lianfa Fabrication",), ("Lianfa Fabrication", "Lianfa Group")}
+    assert all((toy["exposure"] == "no_finding") == (toy["flaggedSuppliers"] == []) for toy in toys)
+
+
+# --- supplier detail: the parts it makes, the toys it reaches through them, and the preview ---
+
+
+def test_supplier_detail_lists_the_parts_it_makes_and_who_else_can_make_them(client, kestrel):
+    lianfa = supplier_named(client, kestrel, "Lianfa Group")
+    parts = client.get(f"/api/suppliers/{lianfa['id']}", headers=kestrel).json()["parts"]
+    assert len(parts) == lianfa["partCount"] == 8
+    assert [p["name"] for p in parts] == sorted(p["name"] for p in parts)
+    by_code = {p["code"]: p for p in parts}
+
+    # "wheel" PRT-0223: Lianfa Group is the only source.
+    assert by_code["PRT-0223"] == {
+        "id": by_code["PRT-0223"]["id"], "code": "PRT-0223", "name": "wheel",
+        "factories": [{"name": "Lianfa Group — Cavite Plant", "country": "Philippines"}],
+        "otherSuppliers": [], "toyCount": 3,
+    }
+    # "soft filling" PRT-0117: Everstar Fabrication can make it too.
+    assert [s["name"] for s in by_code["PRT-0117"]["otherSuppliers"]] == ["Everstar Fabrication"]
+    assert by_code["PRT-0117"]["toyCount"] == 7
+    # 5 of the 8 parts have no other source.
+    assert sum(1 for p in parts if not p["otherSuppliers"]) == 5
+
+
+def test_supplier_detail_says_which_parts_connect_each_toy_to_the_supplier(client, kestrel):
+    lianfa = supplier_named(client, kestrel, "Lianfa Group")
+    body = client.get(f"/api/suppliers/{lianfa['id']}", headers=kestrel).json()
+    part = {p["id"]: p for p in body["parts"]}
+    toys = {t["code"]: t for t in body["toys"]}
+
+    # Marble Digger reaches Lianfa Group through "wheel" and "zip fastener"; Lantern Crane through "soft filling".
+    assert sorted(part[i]["code"] for i in toys["TOY-0290"]["partIds"]) == ["PRT-0044", "PRT-0223"]
+    assert [part[i]["code"] for i in toys["TOY-0029"]["partIds"]] == ["PRT-0117"]
+
+    for toy in body["toys"]:
+        assert len(toy["partIds"]) >= 1
+        # The same parts appear in the toy's own trace, with this supplier as a source.
+        trace = client.get(f"/api/toys/{toy['id']}", headers=kestrel).json()["parts"]
+        through = {p["id"] for p in trace if any(s["supplier"]["id"] == lianfa["id"] for s in p["sources"])}
+        assert set(toy["partIds"]) == through
+        # A toy would be affected exactly when the supplier is the only source of one of those parts.
+        only_source = any(not part[i]["otherSuppliers"] for i in toy["partIds"])
+        assert (toy["exposureIfFlagged"] == "affected") == only_source
+    # toyCount of a part is the number of reached toys that use it.
+    for p in body["parts"]:
+        assert p["toyCount"] == sum(1 for toy in body["toys"] if p["id"] in toy["partIds"])
+
+
 
 
 def test_preview_before_flagging_lianfa(client, kestrel):
@@ -233,7 +295,7 @@ def test_suppliers_list_shows_own_suppliers_toys_reached_and_finding_state(clien
     by_name = {s["name"]: s for s in suppliers}
     assert by_name["Lianfa Group"] == {
         "id": by_name["Lianfa Group"]["id"], "code": "SUP-028", "name": "Lianfa Group",
-        "country": "Turkey", "toysReached": 22, "finding": None,
+        "country": "Turkey", "partCount": 8, "toysReached": 22, "finding": None,
     }
     assert by_name["Sanhe Precision"]["toysReached"] == 27
 

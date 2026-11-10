@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { api, type Exposure, type ToySummary } from '../api'
 import { ExposureBadge } from '../components/ExposureBadge'
 import { EmptyState, ErrorState, Skeleton } from '../components/States'
@@ -105,16 +105,31 @@ export function ToysPage() {
               <th>Toy</th>
               <th>Code</th>
               <th>Exposure</th>
+              <th>Flagged suppliers in its chain</th>
               <th className="number">Parts touched</th>
             </tr>
           </thead>
           <tbody>
             {shown.map((toy) => (
               <tr key={toy.id}>
-                <td>{toy.name}</td>
+                <td>
+                  <Link to={`/toys/${toy.id}`}>{toy.name}</Link>
+                </td>
                 <td className="code">{toy.code}</td>
                 <td>
                   <ExposureBadge exposure={toy.exposure} />
+                </td>
+                <td>
+                  {toy.flaggedSuppliers.length === 0 ? (
+                    <span className="muted">None</span>
+                  ) : (
+                    toy.flaggedSuppliers.map((supplier, index) => (
+                      <span key={supplier.id}>
+                        {index > 0 && ', '}
+                        <Link to={`/suppliers/${supplier.id}`}>{supplier.name}</Link>
+                      </span>
+                    ))
+                  )}
                 </td>
                 <td className="number">
                   {toy.partsTouched} of {toy.partCount}

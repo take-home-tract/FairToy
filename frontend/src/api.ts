@@ -11,6 +11,11 @@ export interface LoginResult extends Me {
   token: string
 }
 
+export interface SupplierRef {
+  id: number
+  name: string
+}
+
 export interface ToySummary {
   total: number
   affected: number
@@ -25,11 +30,75 @@ export interface ToyListItem {
   exposure: Exposure
   partsTouched: number
   partCount: number
+  /** The suppliers with a finding that can make one of the toy's parts. */
+  flaggedSuppliers: SupplierRef[]
 }
 
 export interface ToysResult {
   summary: ToySummary
   toys: ToyListItem[]
+}
+
+export interface TraceSource {
+  supplier: { id: number; name: string; country: string }
+  factory: { name: string; country: string }
+  hasFinding: boolean
+}
+
+export interface TracePart {
+  id: number
+  code: string
+  name: string
+  exposure: Exposure
+  sources: TraceSource[]
+}
+
+export interface ToyTrace {
+  toy: { id: number; code: string; name: string; exposure: Exposure }
+  parts: TracePart[]
+}
+
+export interface Finding {
+  recordedAt: string
+  recordedBy: string
+}
+
+export interface SupplierListItem {
+  id: number
+  code: string
+  name: string
+  country: string
+  /** How many of the Finisher's parts this supplier can make. */
+  partCount: number
+  toysReached: number
+  finding: Finding | null
+}
+
+/** A part a supplier can make for the Finisher. */
+export interface SupplierPart {
+  id: number
+  code: string
+  name: string
+  factories: { name: string; country: string }[]
+  /** Empty when this supplier is the only source of the part. */
+  otherSuppliers: SupplierRef[]
+  toyCount: number
+}
+
+export interface ReachedToy {
+  id: number
+  code: string
+  name: string
+  exposureNow: Exposure
+  exposureIfFlagged: Exposure
+  /** The parts (ids in `parts`) that connect the toy to the supplier. */
+  partIds: number[]
+}
+
+export interface SupplierDetail {
+  supplier: { id: number; code: string; name: string; country: string; finding: Finding | null }
+  parts: SupplierPart[]
+  toys: ReachedToy[]
 }
 
 /** An error answered by the API, in its one error shape. */
@@ -97,4 +166,17 @@ export const api = {
     request<LoginResult>('POST', '/api/auth/login', { username, password }),
   me: () => request<Me>('GET', '/api/me'),
   toys: () => request<ToysResult>('GET', '/api/toys'),
+  toy: (toyId: string) => request<ToyTrace>('GET', `/api/toys/${encodeURIComponent(toyId)}`),
+  suppliers: () => request<{ suppliers: SupplierListItem[] }>('GET', '/api/suppliers'),
+  supplier: (supplierId: string | number) =>
+    request<SupplierDetail>('GET', `/api/suppliers/${encodeURIComponent(supplierId)}`),
+  recordFinding: (supplierId: number) =>
+    request<{ finding: Finding | null }>('PUT', `/api/suppliers/${supplierId}/finding`),
+  withdrawFinding: (supplierId: number) =>
+    request<{ finding: Finding | null }>('DELETE', `/api/suppliers/${supplierId}/finding`),
+}
+
+/** An unknown id, another Finisher's id, or something that is not an id at all. */
+export function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 404 || error.status === 422)
 }

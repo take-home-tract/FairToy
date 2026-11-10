@@ -15,8 +15,6 @@ Submission for the TRACT take-home test: a Finisher-facing tool to flag a suppli
 
 ## Running it
 
-Work in progress: the API is complete, and the UI has sign-in and the Toys page so far.
-
 You need [uv](https://docs.astral.sh/uv/getting-started/installation/), which also installs the right Python for you, and [Node.js](https://nodejs.org/) 22.22 or newer.
 
 **1. The API.** From the `backend` folder:
