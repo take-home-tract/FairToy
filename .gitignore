@@ -1,2 +1,14 @@
 # Assets
 downloads/
+
+# Generated databases (created by the seed)
+backend/data/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
