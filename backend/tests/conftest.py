@@ -7,8 +7,9 @@ from fastapi.testclient import TestClient
 
 from app import config
 from app.main import create_app
+from app.db import connect, finisher_db_path
 from app.seed import seed
-from tests.helpers import PASSWORD, SECRET
+from tests.helpers import PASSWORD, SECRET, USERS
 
 @pytest.fixture(scope="session")
 def data_dir(tmp_path_factory):
@@ -36,3 +37,17 @@ def toy_codes_by_finisher():
         for row in csv.DictReader(f):
             result.setdefault(row["finisher_id"], []).append(row["toy_id"])
     return {code: sorted(toys) for code, toys in result.items()}
+
+
+@pytest.fixture(autouse=True)
+def no_findings_left_behind(request):
+    """The seeded data is shared by all tests, so every test starts and ends with no findings."""
+    yield
+    if "data_dir" not in request.fixturenames:
+        return
+    data_dir = request.getfixturevalue("data_dir")
+    for _username, finisher_id, _name, _code in USERS:
+        db = connect(finisher_db_path(data_dir, finisher_id))
+        with db:
+            db.execute("DELETE FROM child_labor_finding")
+        db.close()

@@ -15,7 +15,7 @@ Submission for the TRACT take-home test: a Finisher-facing tool to flag a suppli
 
 ## Running it
 
-Work in progress: the backend can seed its databases and sign users in. The data endpoints and the UI follow.
+Work in progress: the API is complete. The UI follows.
 
 You need [uv](https://docs.astral.sh/uv/getting-started/installation/), which also installs the right Python for you.
 

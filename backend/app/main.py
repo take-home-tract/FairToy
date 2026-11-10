@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from app import config
 from app.db import accounts_db_path
 from app.errors import install_error_handlers
-from app.routers import auth as auth_router
+from app.routers import auth, findings, suppliers, toys
 
 log = logging.getLogger("fairtoy")
 
@@ -42,7 +42,8 @@ def create_app(data_dir: Path | None = None, secret: str | None = None) -> FastA
     app.state.data_dir = data_dir or config.DATA_DIR
     app.state.secret = secret or _secret_from_environment()
     install_error_handlers(app)
-    app.include_router(auth_router.router)
+    for module in (auth, toys, suppliers, findings):
+        app.include_router(module.router)
     return app
 
 
