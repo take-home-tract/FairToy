@@ -6,7 +6,7 @@ Numbers in the examples come from the sample data for the Finisher **Kestrel Pla
 
 ## The user and what they need
 
-A compliance or operations person at a Finisher. A report arrives that a supplier uses child labor, and they need to know within minutes which toys are hit and why, so they can act outside the app. They are not an administrator and do not manage data here.
+A compliance or operations person at a Finisher, with their own sign-in. A report arrives that a supplier uses child labor, and they need to know within minutes which toys are hit and why, so they can act outside the app. They are not an administrator and do not manage data here.
 
 Their jobs, in order of urgency:
 
@@ -22,14 +22,14 @@ Their jobs, in order of urgency:
 3. **Explain every status.** Each marked toy says in a sentence why, and shows the path.
 4. **Show the consequence before it happens.** Flagging a supplier first tells the user which toys will change.
 5. **Mistakes are cheap.** Every flag has an undo, right after and later.
-6. **Context is always visible.** Which Finisher you are is always shown, and is part of the URL so a refresh or a shared link lands in the same place.
+6. **Context is always visible.** The Finisher you belong to and your user name are always shown. You cannot switch Finisher; pages have their own URLs, so a refresh lands in the same place.
 7. **Never color alone.** Every status has a word and a symbol as well as a color.
 
 ## Walkthrough
 
 Maria works at Kestrel Play. A report names Lianfa Group.
 
-1. She opens FairToy and picks **Kestrel Play** (no login).
+1. She opens FairToy and signs in as `kestrel-play`. The top bar shows **Kestrel Play**, her Finisher. She sees nothing of any other Finisher.
 2. She opens **Suppliers** and searches "Lianfa".
 3. She presses **Flag supplier**. A dialog says: *22 toys reach this supplier. 13 would become Affected, 9 Possibly affected.*
 4. She confirms. A message says *Lianfa Group flagged. 22 toys changed.* with an **Undo** link.
@@ -40,14 +40,22 @@ Maria works at Kestrel Play. A report names Lianfa Group.
 
 ## Screens
 
-### Finisher picker
+### Sign in
 
-First visit: a short list of Finishers. After that, the current Finisher sits in the top bar and can be changed from there.
+```text
+FairToy
+
+Username  [ kestrel-play        ]
+Password  [ ********            ]
+                      [ Sign in ]
+```
+
+Shown whenever the user is not signed in. A wrong username or password gives one message that does not say which was wrong. There is no sign up and no password reset; demo users are listed in the README. After signing in, the Finisher and user sit in the top bar with **Sign out**.
 
 ### Toys
 
 ```text
-FairToy   Kestrel Play  [change]                     Toys | Suppliers
+FairToy   Kestrel Play · kestrel-play  [Sign out]     Toys | Suppliers
 --------------------------------------------------------------------
 40 toys     13 Affected     9 Possibly affected     18 No finding in chain
 
@@ -95,10 +103,11 @@ Parts touched by a finding come first and are open. Parts with no finding are co
 ### Suppliers
 
 ```text
-Suppliers reached by your toys (49)                         [ Search suppliers... ]
+Your suppliers (49)                         [ Search suppliers... ]
 
 Supplier          Country   Toys reached   Finding
 Lianfa Group      Turkey    22             [Finding] 10 Nov 2026    [Withdraw]
+                                           by kestrel-play
 Sanhe Precision   Poland    27             None                     [Flag supplier]
 ```
 
@@ -135,21 +144,24 @@ If some of those toys are already exposed through other findings, the dialog cou
 - **Loading:** a quiet skeleton, not a spinner over a blank page.
 - **Empty search or filter:** says what was searched and offers to clear it.
 - **Error:** says what failed and offers retry. A failed flag leaves the screen as it was.
+- **Signed out or expired:** the user is sent to the sign-in page and returns to the same page afterwards.
 - **After a change:** the page refreshes from the server. Success is shown only once the server confirms.
 
 ## Routes
 
 | URL | Screen |
 |---|---|
-| `/` | Finisher picker |
-| `/finishers/:finisherId/toys` | Toys (the chosen filter is kept in the page URL) |
-| `/finishers/:finisherId/toys/:toyId` | Toy trace |
-| `/finishers/:finisherId/suppliers` | Suppliers |
-| `/finishers/:finisherId/suppliers/:supplierId` | Supplier detail |
+| `/login` | Sign in |
+| `/toys` | Toys (the chosen filter is kept in the page URL) |
+| `/toys/:toyId` | Toy trace |
+| `/suppliers` | Suppliers |
+| `/suppliers/:supplierId` | Supplier detail |
+
+No URL names a Finisher; it always comes from the sign-in.
 
 ## Must have and nice to have
 
-**Must have** (the assignment's minimum plus decisions already made): Toys list with exposure, toy trace, Suppliers list, flag, withdraw, filter by exposure.
+**Must have** (the assignment's minimum plus decisions already made): sign in and sign out, Toys list with exposure, toy trace, Suppliers list, flag, withdraw, filter by exposure.
 
 **Nice to have** (cheap, but cut first if time runs out): the consequence preview in the flag dialog, the undo message after flagging, the supplier detail view, search.
 

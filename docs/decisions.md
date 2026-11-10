@@ -4,15 +4,15 @@ A short log of the choices that shape FairToy. Each entry says what we decided, 
 
 ## D1: One Finisher's viewpoint
 
-- **Decision:** The app shows one Finisher looking at its own products. With no login, the user selects which Finisher they are.
+- **Decision:** The app shows one Finisher's products: the Finisher of the signed-in user.
 - **Rejected:** A cross-Finisher view. The assignment is about a Finisher understanding its own product line.
-- **Consequence:** Other Finishers' toy lines never appear.
+- **Consequence:** Other Finishers' toy lines never appear. There is no way to switch Finisher other than signing in as another user.
 
-## D2: Findings belong to the Finisher; reference data is shared
+## D2: All of a Finisher's data belongs to it
 
-- **Decision:** Toys and findings belong to one Finisher. A finding by one Finisher never changes another's view. Parts and suppliers are shared, read-only reference data, and a Finisher's world is what its toys reach. The assignment has the Finisher flag its own supplier.
-- **Rejected:** Global findings shared by all Finishers, and a private copy of every part and supplier per Finisher. The copy protects nothing: nobody edits reference data and it holds nothing private. The sample export shares suppliers and parts across Finishers, and each Finisher reaches 49 of the 50 suppliers, so private copies would mean splitting and copying the export about eight times.
-- **Consequence:** A toy ID listed by two Finishers is two separate toys. Only the toy and the finding carry the Finisher.
+- **Decision:** Toys, parts, suppliers and findings each belong to exactly one Finisher. Nothing is shared between Finishers. The assignment says Finishers input *their* suppliers, parts and toys, and that a user must only see and act on their Finisher's data.
+- **Rejected:** One shared list of parts and suppliers with only findings kept private. It looks cheaper, but it is wrong for a multi-tenant product: a supplier list is the Finisher's own commercial data, a shared row would let one Finisher's future edit change another's view, and isolation would depend on remembering a "reached by my toys" filter in every query instead of on ownership. Also rejected: findings shared by all Finishers.
+- **Consequence:** Toy, part and supplier carry their Finisher; links and findings inherit it. The sample export combines all Finishers, so the seed gives each Finisher its own parts and suppliers (the ones its toys use). The same real-world supplier exists once per Finisher, and a toy code listed by two Finishers is two separate toys.
 
 ## D3: Possible sources are only possible
 
@@ -22,7 +22,7 @@ A short log of the choices that shape FairToy. Each entry says what we decided, 
 
 ## D4: A finding can be recorded and withdrawn, with no history
 
-- **Decision:** A finding can be removed so a mistaken click can be undone. No reason, status or history is kept.
+- **Decision:** A finding can be removed so a mistaken click can be undone. It records who made it and when. No reason, status or history is kept. Any user of the same Finisher can withdraw it.
 - **Rejected:** No undo (every test of exposure would be irreversible), and a full lifecycle (remediation, recall, audit trail), which is out of scope.
 - **Consequence:** A finding is its own record, not a true/false on the supplier. Withdrawing is where the lifecycle will attach.
 
@@ -32,11 +32,11 @@ A short log of the choices that shape FairToy. Each entry says what we decided, 
 - **Rejected:** Storing a status on each toy, which can go stale.
 - **Consequence:** Recording or withdrawing a finding needs no recalculation job.
 
-## D6: Data is assumed already loaded
+## D6: Data is seeded, not entered
 
-- **Decision:** We assume the data is already loaded and available. The task asks for seeing toys, flagging a supplier and seeing affected toys, not for data entry. Entering or uploading data is an extension point. The six CSVs are the dataset we assume is in place.
-- **Rejected:** Building upload, forms or an import pipeline, and designing how data gets in.
-- **Consequence:** The design starts from a database that already holds the data. Data entry appears only as a future arrow.
+- **Decision:** A seed step loads the six CSVs into the model and creates the users (at least one per Finisher in `finishers.csv`, as the assignment asks). It is part of the deliverable. Entering or uploading data through the app is an extension point: the task asks for seeing toys, flagging a supplier and seeing affected toys, not for data entry.
+- **Rejected:** Upload screens, forms or a general import pipeline.
+- **Consequence:** The app starts from a seeded database. The seed applies the model's rules once (see [design.md](design.md)), and data entry appears only as a future arrow.
 
 ## D7: Basic Materials and purchase records are out of scope
 
@@ -73,11 +73,11 @@ A short log of the choices that shape FairToy. Each entry says what we decided, 
 - **Rejected:** Mirroring the CSVs, which brings composite keys, a factory table nobody queries, and a generic provider type with one value.
 - **Consequence:** The trace is two hops (toy, part, supplier). The model has fewer concepts, and nothing in it exists "just in case".
 
-## D11: The API is scoped to a Finisher, and findings are an idempotent sub-resource
+## D11: The API is scoped by the signed-in user, and findings are an idempotent sub-resource
 
-- **Decision:** Every path is under `/api/finishers/{fid}/...`. A finding is recorded with `PUT` and withdrawn with `DELETE` on `.../suppliers/{id}/finding`. Both are idempotent and return the new finding state and toy totals. A Finisher cannot record a finding on a supplier its toys do not reach.
-- **Rejected:** A Finisher header or session (there is no login), and a `POST` that creates findings with their own ids (a finding is identified by Finisher and supplier, so a repeat click would create an error or a duplicate).
-- **Consequence:** A double click is harmless, isolation is enforced by the path, and the UI needs no extra call after a change. See [api.md](api.md).
+- **Decision:** No path or parameter names a Finisher. Every data request takes the Finisher from the signed-in user. A finding is recorded with `PUT` and withdrawn with `DELETE` on `/api/suppliers/{id}/finding`. Both are idempotent and return the new finding state and toy totals. Another Finisher's supplier answers 404, like one that does not exist.
+- **Rejected:** A Finisher id in the path or a header (a user could change it to another Finisher's, so every endpoint would need its own check), and a `POST` that creates findings with their own ids (a finding is identified by Finisher and supplier, so a repeat click would create an error or a duplicate).
+- **Consequence:** There is nothing to tamper with: the only Finisher a request can touch is the user's own. A double click is harmless, and the UI needs no extra call after a change. See [api.md](api.md).
 
 ## D12: Exposure is calculated in the backend by a pure function
 
@@ -99,7 +99,13 @@ A short log of the choices that shape FairToy. Each entry says what we decided, 
 
 ## D15: Two screens plus a trace, with exposure never shown as safe
 
-- **Decision:** Toys and Suppliers are the two screens. A toy opens a trace with its exposed parts first and the rest collapsed. The Finisher is in the top bar and in the URL. "No finding in its chain" is neutral grey. Every status has a word, a symbol and a color.
+- **Decision:** Toys and Suppliers are the two screens. A toy opens a trace with its exposed parts first and the rest collapsed. The Finisher and the user are shown in the top bar. "No finding in its chain" is neutral grey. Every status has a word, a symbol and a color.
 - **Rejected:** A dashboard of charts (the answer is three counts and a list), and green for "no finding" (it reads as safe).
 - **Consequence:** The UI follows the user's jobs in [ux.md](ux.md).
+
+## D16: Authentication: seeded users and a signed token
+
+- **Decision:** Each user belongs to one Finisher. Users are seeded, at least one per Finisher from `finishers.csv`, with a demo password stored only as a hash. Passwords are stored as a salted scrypt hash (Python standard library). `POST /api/auth/login` checks the credentials and returns a signed token (JWT, HS256) that carries the user id and expires after 8 hours. The signing secret comes from configuration (an environment variable), never from the code. The browser keeps the token in session storage, so it survives a refresh and is gone when the tab closes, and sends it as a bearer header. One backend dependency turns the token into the current user and their Finisher, and every query is filtered by that Finisher.
+- **Rejected:** A Finisher picker with no login (the updated assignment requires authentication), server-side sessions (a session table for no gain at this size), a cookie (needs cross-site request protection, which is more to explain), and sign up, password reset, roles or third-party providers (explicitly not required).
+- **Consequence:** Isolation is enforced in one place and tested directly. Another Finisher's toy answers 404, the same as a toy that does not exist, so nothing leaks. Tokens cannot be revoked before they expire, which is acceptable here. A token in browser storage could be read by a script injected into the page; React escapes what it renders and the app loads no third-party scripts, and an HttpOnly cookie would be the hardening step. See [api.md](api.md).
 

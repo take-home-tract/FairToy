@@ -21,13 +21,21 @@ Our company, FairToy, is building a SaaS platform for Finishers to input their s
 
 ## Your Task
 
+> Updated by the TRACT Recruitment Team by email on 10 Nov 2026: authentication was added and removed from the out-of-scope list.
+
 Build a working application that lets a Finisher understand and act on child labor exposure across their product line. At minimum, a Finisher should be able to:
 - See their toys and the relation between toys, parts, and suppliers
 - Flag a supplier as using child labor
 - See which toys are affected, traceable from the toy back through the parts to the flagged supplier
+- See their toys and the relation between toys, parts and suppliers.
 
-You're welcome to build additional functionality beyond this.
-**Out of Scope (not assessed)** : authentication/user accounts/multi-tenancy, deployment and infrastructure, real-time updates/websockets/streaming, alerting/email/notifications.
+### Authentication
+
+A user belongs to one Finisher and must only see and act on that Finisher's data. Keep it simple: seed one or more users per Finisher from finishers.csv. No sign up, password reset, roles, or third party identity providers are required. Any session or token approach is fine. We will assess that the API enforces data isolation, not the sophistication of the login flow.
+
+Beyond the minimum, you may build additional functionality that might be useful to a Finisher.
+
+**Out of Scope (not assessed)**: deployment and infrastructure, real-time updates/websockets/streaming, alerting/email/notifications.
 
 ## Technology
 

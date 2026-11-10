@@ -5,7 +5,7 @@ The contract between the React app and the Python API. It serves the screens in 
 ## Conventions
 
 - JSON over HTTP, all paths under `/api`.
-- Everything is scoped to a Finisher in the path: `/api/finishers/{finisherId}/...`. There is no login, so the path is the only context ([D1](decisions.md#d1-one-finishers-viewpoint)).
+- Every endpoint except login needs `Authorization: Bearer <token>`. The Finisher is taken from the signed-in user, never from the path, the query or the body ([D11](decisions.md#d11-the-api-is-scoped-by-the-signed-in-user-and-findings-are-an-idempotent-sub-resource), [D16](decisions.md#d16-authentication-seeded-users-and-a-signed-token)).
 - Ids in paths are the internal numeric ids from the data model and are unrelated to codes. `code` is the source reference shown on screen.
 - Exposure values: `affected`, `possibly_affected`, `no_finding`.
 - Times are ISO 8601 in UTC.
@@ -16,21 +16,42 @@ The contract between the React app and the Python API. It serves the screens in 
 
 | Method and path | Purpose | Screen |
 |---|---|---|
-| `GET /api/finishers` | List Finishers | Picker |
-| `GET /api/finishers/{fid}/toys` | Toys with exposure, plus totals | Toys |
-| `GET /api/finishers/{fid}/toys/{toyId}` | Trace of one toy | Toy trace |
-| `GET /api/finishers/{fid}/suppliers` | Suppliers the Finisher's toys reach | Suppliers |
-| `GET /api/finishers/{fid}/suppliers/{supplierId}` | One supplier and the toys it reaches | Supplier detail, flag dialog |
-| `PUT /api/finishers/{fid}/suppliers/{supplierId}/finding` | Record a finding | Flag |
-| `DELETE /api/finishers/{fid}/suppliers/{supplierId}/finding` | Withdraw a finding | Withdraw, undo |
+| `POST /api/auth/login` | Sign in, get a token | Sign in |
+| `GET /api/me` | The signed-in user and their Finisher | Top bar |
+| `GET /api/toys` | The Finisher's toys with exposure, plus totals | Toys |
+| `GET /api/toys/{toyId}` | Trace of one toy | Toy trace |
+| `GET /api/suppliers` | The Finisher's suppliers | Suppliers |
+| `GET /api/suppliers/{supplierId}` | One supplier and the toys it reaches | Supplier detail, flag dialog |
+| `PUT /api/suppliers/{supplierId}/finding` | Record a finding | Flag |
+| `DELETE /api/suppliers/{supplierId}/finding` | Withdraw a finding | Withdraw, undo |
 
-### GET /api/finishers
+"The Finisher" below always means the signed-in user's Finisher.
+
+### POST /api/auth/login
 
 ```json
-[{ "id": 2, "name": "Kestrel Play" }]
+{ "username": "kestrel-play", "password": "..." }
 ```
 
-### GET /api/finishers/{fid}/toys
+Returns a signed token that expires, plus who signed in. Wrong credentials give 401 without saying which part was wrong.
+
+```json
+{
+  "token": "<signed token>",
+  "user": { "id": 2, "username": "kestrel-play" },
+  "finisher": { "id": 2, "name": "Kestrel Play" }
+}
+```
+
+Signing out is done in the browser by discarding the token.
+
+### GET /api/me
+
+```json
+{ "user": { "id": 2, "username": "kestrel-play" }, "finisher": { "id": 2, "name": "Kestrel Play" } }
+```
+
+### GET /api/toys
 
 Sorted by exposure (affected first), then name. `partsTouched` is how many of the toy's parts have at least one implicated supplier.
 
@@ -44,7 +65,7 @@ Sorted by exposure (affected first), then name. `partsTouched` is how many of th
 }
 ```
 
-### GET /api/finishers/{fid}/toys/{toyId}
+### GET /api/toys/{toyId}
 
 Parts are sorted with exposed parts first. Each part lists every possible source.
 
@@ -67,22 +88,22 @@ Parts are sorted with exposed parts first. Each part lists every possible source
 
 The UI builds the "why" sentence from `exposure` and `sources`; the API sends no prose.
 
-### GET /api/finishers/{fid}/suppliers
+### GET /api/suppliers
 
-Only suppliers reached by the Finisher's toys are returned.
+Only the Finisher's own suppliers are returned. `toysReached` is how many of its toys use a part this supplier can make.
 
 ```json
 {
   "suppliers": [
     { "id": 28, "code": "SUP-028", "name": "Lianfa Group", "country": "Turkey",
-      "toysReached": 22, "finding": { "recordedAt": "2026-11-10T14:02:11Z" } },
+      "toysReached": 22, "finding": { "recordedAt": "2026-11-10T14:02:11Z", "recordedBy": "kestrel-play" } },
     { "id": 35, "code": "SUP-035", "name": "Sanhe Precision", "country": "Poland",
       "toysReached": 27, "finding": null }
   ]
 }
 ```
 
-### GET /api/finishers/{fid}/suppliers/{supplierId}
+### GET /api/suppliers/{supplierId}
 
 Returns each reached toy twice, as it is now and as it would be with a finding. This feeds both the detail view and the flag dialog's preview. If a finding already exists, the two values are equal.
 
@@ -96,7 +117,7 @@ Returns each reached toy twice, as it is now and as it would be with a finding. 
 }
 ```
 
-### PUT and DELETE .../suppliers/{supplierId}/finding
+### PUT and DELETE /api/suppliers/{supplierId}/finding
 
 - `PUT` records a finding. No body. `DELETE` withdraws it.
 - Both are **idempotent**: recording twice or withdrawing twice is not an error and changes nothing the second time.
@@ -104,7 +125,7 @@ Returns each reached toy twice, as it is now and as it would be with a finding. 
 
 ```json
 {
-  "finding": { "recordedAt": "2026-11-10T14:02:11Z" },
+  "finding": { "recordedAt": "2026-11-10T14:02:11Z", "recordedBy": "kestrel-play" },
   "summary": { "total": 40, "affected": 13, "possiblyAffected": 9, "noFinding": 18 }
 }
 ```
@@ -119,12 +140,13 @@ After `DELETE`, `finding` is `null`.
 
 | Status | Code | When |
 |---|---|---|
-| 404 | `finisher_not_found` | Unknown Finisher |
-| 404 | `toy_not_found` | The toy does not belong to this Finisher |
-| 404 | `supplier_not_found` | Unknown supplier, or one this Finisher's toys do not reach |
+| 401 | `invalid_credentials` | Wrong username or password at login |
+| 401 | `not_authenticated` | Missing, invalid or expired token |
+| 404 | `toy_not_found` | Unknown toy, or a toy of another Finisher |
+| 404 | `supplier_not_found` | Unknown supplier, or a supplier of another Finisher |
 
-The last one is the isolation rule: a Finisher cannot record a finding on a supplier its toys do not reach ([D2](decisions.md#d2-findings-belong-to-the-finisher-reference-data-is-shared)).
+Isolation: another Finisher's toy or supplier answers 404, the same as one that does not exist, so nothing leaks. Every record belongs to one Finisher, so a user can never see, flag or withdraw anything outside their own ([D2](decisions.md#d2-all-of-a-finishers-data-belongs-to-it)).
 
 ## Not in the API
 
-Creating, editing or deleting toys, parts or suppliers; uploading data; findings with a reason or history; paging. All are out of scope or deferred ([spec.md](spec.md)).
+Sign up, password reset, roles, managing users; creating, editing or deleting toys, parts or suppliers; uploading data; findings with a reason or history; paging. All are out of scope or deferred ([spec.md](spec.md)).
