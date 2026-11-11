@@ -4,6 +4,7 @@ import {
   MOONPATH,
   flagSupplier,
   openSignedIn,
+  signIn,
   summaryCounts,
   supplierRow,
   todayAsShown,
@@ -285,4 +286,29 @@ test('flagging and then withdrawing on the same row does not ask again', async (
 
   await expect(supplierRow(page, LIANFA).getByRole('button', { name: 'Flag supplier' })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('an Undo belongs to the sign-in that made the change: the next user is never offered it', async ({ page }) => {
+  await openSignedIn(page, KESTREL, '/suppliers')
+  await supplierRow(page, LIANFA).getByRole('button', { name: 'Flag supplier' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Flag supplier' }).click()
+  await expect(page.getByRole('status').getByRole('button', { name: 'Undo' })).toBeVisible()
+
+  // Well within the notice's 12 seconds, another Finisher's user signs in on the same tab,
+  // without reloading the page.
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await signIn(page, MOONPATH)
+  await expect(page.locator('.context')).toHaveText('Moonpath Brands · moonpath-brands')
+  await expect(page.getByRole('status')).toHaveCount(0)
+  await page.getByRole('link', { name: 'Suppliers' }).click()
+  await expect(page.locator('tbody tr')).toHaveCount(49)
+  await expect(page.getByRole('status')).toHaveCount(0)
+
+  // The same holds for the same user signing in again.
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await signIn(page, KESTREL)
+  await expect(page.locator('.context')).toHaveText('Kestrel Play · kestrel-play')
+  await expect(page.getByRole('status')).toHaveCount(0)
+  // And Kestrel Play's finding is untouched.
+  await expect(supplierRow(page, LIANFA)).toContainText('by kestrel-play')
 })

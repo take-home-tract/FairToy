@@ -24,6 +24,7 @@ A user signs in and sees only their own Finisher's toys, parts and suppliers. Ea
 - [API](docs/api.md): the contract between frontend and backend
 - [UX](docs/ux.md): screens and walkthrough
 - [Decisions](docs/decisions.md): the choices made and what was rejected
+- [State machine](docs/state-machine.md): findings, resolutions, exposure, the session and Undo as state machines
 
 ## Running it
 

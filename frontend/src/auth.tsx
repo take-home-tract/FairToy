@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, setSignedOutHandler, tokenStore, type Me } from './api'
 
 interface Auth {
@@ -9,6 +9,13 @@ interface Auth {
   me: Me | undefined
   signIn: (username: string, password: string) => Promise<void>
   signOut: () => void
+  /**
+   * Which sign-in is current. It changes on every sign-in and sign-out, so
+   * anything tied to one user (a pending Undo) can tell that the user changed.
+   */
+  session: number
+  /** The current session, read at call time (for callbacks that outlive a render). */
+  currentSession: () => number
 }
 
 const AuthContext = createContext<Auth | null>(null)
@@ -16,6 +23,13 @@ const AuthContext = createContext<Auth | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [token, setToken] = useState<string | null>(() => tokenStore.get())
+  const [session, setSession] = useState(0)
+  const sessionRef = useRef(0)
+  const nextSession = useCallback(() => {
+    sessionRef.current += 1
+    setSession(sessionRef.current)
+  }, [])
+  const currentSession = useCallback(() => sessionRef.current, [])
 
   // Everything cached belongs to the user who loaded it. Whenever the user
   // changes, the cache is emptied so nothing of one Finisher is ever shown to another.
@@ -23,7 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStore.clear()
     setToken(null)
     queryClient.clear()
-  }, [queryClient])
+    nextSession()
+  }, [queryClient, nextSession])
 
   const signIn = useCallback(
     async (username: string, password: string) => {
@@ -32,8 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tokenStore.set(result.token)
       queryClient.setQueryData<Me>(['me'], { user: result.user, finisher: result.finisher })
       setToken(result.token)
+      nextSession()
     },
-    [queryClient],
+    [queryClient, nextSession],
   )
 
   // The API answered 401 to a request: the token expired or the API restarted.
@@ -45,8 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, enabled: token !== null, staleTime: Infinity })
 
   const value = useMemo<Auth>(
-    () => ({ signedIn: token !== null, me: me.data, signIn, signOut }),
-    [token, me.data, signIn, signOut],
+    () => ({ signedIn: token !== null, me: me.data, signIn, signOut, session, currentSession }),
+    [token, me.data, signIn, signOut, session, currentSession],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

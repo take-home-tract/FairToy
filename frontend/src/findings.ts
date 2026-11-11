@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from './api'
+import { useAuth } from './auth'
 import { useNotice } from './notice'
 
 interface SupplierRef {
@@ -26,23 +27,31 @@ function useRefetchAll() {
 export function useFindingActions() {
   const refetchAll = useRefetchAll()
   const { show } = useNotice()
+  const { currentSession } = useAuth()
+  // The sign-in a change starts in. Its notice is dropped if the user changed meanwhile.
+  const onMutate = () => ({ session: currentSession() })
 
   const withdraw = useMutation({
     mutationFn: (supplier: SupplierRef) => api.withdrawFinding(supplier.id),
-    onSuccess: async (_result, supplier) => {
+    onMutate,
+    onSuccess: async (_result, supplier, context) => {
       await refetchAll()
-      show({ text: `Finding against ${supplier.name} withdrawn.` })
+      show({ text: `Finding against ${supplier.name} withdrawn.` }, context?.session)
     },
-    onError: (error, supplier) => {
-      show({ text: `Could not withdraw the finding against ${supplier.name}. ${error.message}` })
+    onError: (error, supplier, context) => {
+      show({ text: `Could not withdraw the finding against ${supplier.name}. ${error.message}` }, context?.session)
     },
   })
 
   const record = useMutation({
     mutationFn: (supplier: SupplierRef) => api.recordFinding(supplier.id),
-    onSuccess: async (_result, supplier) => {
+    onMutate,
+    onSuccess: async (_result, supplier, context) => {
       await refetchAll()
-      show({ text: `${supplier.name} flagged.`, action: { label: 'Undo', run: () => withdraw.mutate(supplier) } })
+      show(
+        { text: `${supplier.name} flagged.`, action: { label: 'Undo', run: () => withdraw.mutate(supplier) } },
+        context?.session,
+      )
     },
   })
 
@@ -61,27 +70,34 @@ interface ResolutionTarget {
 export function useResolutionActions() {
   const refetchAll = useRefetchAll()
   const { show } = useNotice()
+  const { currentSession } = useAuth()
+  const onMutate = () => ({ session: currentSession() })
 
   const withdraw = useMutation({
     mutationFn: (target: ResolutionTarget) => api.withdrawResolution(target.toyId, target.part.id),
-    onSuccess: async (_result, target) => {
+    onMutate,
+    onSuccess: async (_result, target, context) => {
       await refetchAll()
-      show({ text: `Supplier of “${target.part.name}” no longer recorded.` })
+      show({ text: `Supplier of “${target.part.name}” no longer recorded.` }, context?.session)
     },
-    onError: (error) => show({ text: `Could not withdraw it. ${error.message}` }),
+    onError: (error, _target, context) => show({ text: `Could not withdraw it. ${error.message}` }, context?.session),
   })
 
   const record = useMutation({
     mutationFn: (target: ResolutionTarget & { supplier: SupplierRef }) =>
       api.recordResolution(target.toyId, target.part.id, target.supplier.id),
-    onSuccess: async (_result, target) => {
+    onMutate,
+    onSuccess: async (_result, target, context) => {
       await refetchAll()
-      show({
-        text: `Recorded: “${target.part.name}” came from ${target.supplier.name}.`,
-        action: { label: 'Undo', run: () => withdraw.mutate(target) },
-      })
+      show(
+        {
+          text: `Recorded: “${target.part.name}” came from ${target.supplier.name}.`,
+          action: { label: 'Undo', run: () => withdraw.mutate(target) },
+        },
+        context?.session,
+      )
     },
-    onError: (error) => show({ text: `Could not record it. ${error.message}` }),
+    onError: (error, _target, context) => show({ text: `Could not record it. ${error.message}` }, context?.session),
   })
 
   return { record, withdraw }
