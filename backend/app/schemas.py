@@ -3,7 +3,7 @@
 Fields are written in snake_case here and sent as camelCase (partsTouched).
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from app.exposure import Exposure
@@ -11,6 +11,11 @@ from app.exposure import Exposure
 
 class ApiModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+
+class SupplierRef(ApiModel):
+    id: int
+    name: str
 
 
 # --- auth ---
@@ -62,11 +67,6 @@ class ToySummary(ApiModel):
     no_finding: int
 
 
-class SupplierRef(ApiModel):
-    id: int
-    name: str
-
-
 class ToyListItem(ApiModel):
     id: int
     code: str
@@ -76,6 +76,8 @@ class ToyListItem(ApiModel):
     part_count: int
     # The suppliers with a finding that can make one of the toy's parts.
     flagged_suppliers: list[SupplierRef]
+    # How many of its parts have a recorded supplier (a resolution).
+    parts_resolved: int
 
 
 class ToysResponse(ApiModel):
@@ -100,12 +102,29 @@ class TraceSource(ApiModel):
     has_finding: bool
 
 
+class ResolutionOut(ApiModel):
+    """The supplier the Finisher recorded as having made this part of this toy."""
+
+    supplier: SupplierRef
+    recorded_at: str  # ISO 8601, UTC
+    recorded_by: str  # username
+
+
+class ResolutionRequest(ApiModel):
+    supplier_id: int = Field(ge=1)
+
+
+class ResolutionResponse(ApiModel):
+    resolution: ResolutionOut | None
+
+
 class TracePart(ApiModel):
     id: int
     code: str
     name: str
     exposure: Exposure
-    sources: list[TraceSource]
+    sources: list[TraceSource]  # every possible source, also when a resolution names one
+    resolution: ResolutionOut | None
 
 
 class TraceToy(ApiModel):

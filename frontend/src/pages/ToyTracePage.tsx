@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { api, isNotFound, type TracePart, type TraceSource } from '../api'
+import { api, isNotFound, type Resolution, type TracePart, type TraceSource } from '../api'
 import { ExposureBadge } from '../components/ExposureBadge'
 import { FindingButton } from '../components/FindingControls'
+import { useResolutionActions } from '../findings'
 import { EmptyState, ErrorState, Skeleton } from '../components/States'
 import { EXPOSURE_HELP } from '../exposure'
-import { plantName, plural, whySentence } from '../format'
+import { effectiveSources, formatDate, plantName, plural, suppliersOf, whySentence } from '../format'
 
 /**
  * One toy, traced back through its parts to the suppliers that can make them.
@@ -55,8 +56,8 @@ export function ToyTracePage() {
         <p className="chain-summary">
           {plural(parts.length, 'part')} from {plural(suppliers.length, 'supplier')}.{' '}
           {singleSource === parts.length
-            ? 'Every part has a single possible supplier.'
-            : `${plural(singleSource, 'part has', 'parts have')} a single possible supplier, ${
+            ? 'Every part has a single known supplier.'
+            : `${plural(singleSource, 'part has', 'parts have')} a single known supplier, ${
                 parts.length - singleSource
               } can come from more than one.`}
         </p>
@@ -74,16 +75,18 @@ export function ToyTracePage() {
         </div>
       </div>
 
-      {bySupplier ? <BySupplier suppliers={suppliers} /> : <ByPart parts={parts} />}
+      {bySupplier ? <BySupplier suppliers={suppliers} /> : <ByPart toyId={toy.id} parts={parts} />}
     </>
   )
 }
 
 // --- by part ---
 
-function ByPart({ parts }: { parts: TracePart[] }) {
+function ByPart({ toyId, parts }: { toyId: number; parts: TracePart[] }) {
   const touched = parts.filter((part) => part.exposure !== 'no_finding')
-  const others = parts.filter((part) => part.exposure === 'no_finding')
+  // Resolved parts with no finding stay visible, so a resolution can be checked or withdrawn.
+  const resolved = parts.filter((part) => part.exposure === 'no_finding' && part.resolution)
+  const others = parts.filter((part) => part.exposure === 'no_finding' && !part.resolution)
   return (
     <>
       {touched.length > 0 && (
@@ -91,16 +94,22 @@ function ByPart({ parts }: { parts: TracePart[] }) {
           <h2 id="touched-heading">Parts touched by a finding ({touched.length})</h2>
           <ul className="parts">
             {touched.map((part) => (
-              <li key={part.id} className="part">
-                <div className="part-head">
-                  <span>
-                    <strong>{part.name}</strong> <span className="code">{part.code}</span>
-                  </span>
-                  <ExposureBadge exposure={part.exposure} />
-                </div>
-                <SourceList sources={part.sources} />
-                {part.exposure === 'possibly_affected' && <p className="part-help">{EXPOSURE_HELP.possibly_affected}</p>}
-              </li>
+              <PartCard key={part.id} toyId={toyId} part={part} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {resolved.length > 0 && (
+        <section aria-labelledby="resolved-heading">
+          <h2 id="resolved-heading">Parts you resolved ({resolved.length})</h2>
+          <p className="muted group-help">
+            You recorded which supplier made these parts. A finding against the other possible suppliers no longer
+            touches this toy.
+          </p>
+          <ul className="parts">
+            {resolved.map((part) => (
+              <PartCard key={part.id} toyId={toyId} part={part} />
             ))}
           </ul>
         </section>
@@ -108,9 +117,9 @@ function ByPart({ parts }: { parts: TracePart[] }) {
 
       {/* Parts with no finding are collapsed when there is something more urgent above them. */}
       {others.length > 0 && (
-        <details className="other-parts" open={touched.length === 0}>
+        <details className="other-parts" open={touched.length + resolved.length === 0}>
           <summary>
-            {touched.length > 0 ? 'Other parts' : 'Parts'} ({others.length})
+            {touched.length + resolved.length > 0 ? 'Other parts' : 'Parts'} ({others.length})
           </summary>
           <table className="parts-table">
             <thead>
@@ -138,16 +147,87 @@ function ByPart({ parts }: { parts: TracePart[] }) {
   )
 }
 
-function SourceList({ sources }: { sources: TraceSource[] }) {
+/** One part touched by a finding or resolved: its sources, and what can be done about it. */
+function PartCard({ toyId, part }: { toyId: number; part: TracePart }) {
+  return (
+    <li className="part">
+      <div className="part-head">
+        <span>
+          <strong>{part.name}</strong> <span className="code">{part.code}</span>
+        </span>
+        <ExposureBadge exposure={part.exposure} />
+      </div>
+      <SourceList sources={part.sources} resolution={part.resolution} />
+      {part.resolution ? (
+        <RecordedSupplier toyId={toyId} part={part} resolution={part.resolution} />
+      ) : (
+        part.exposure === 'possibly_affected' && <ChooseSupplier toyId={toyId} part={part} />
+      )}
+    </li>
+  )
+}
+
+/** For a possibly affected part: say which supplier actually made it, for example from purchase records. */
+function ChooseSupplier({ toyId, part }: { toyId: number; part: TracePart }) {
+  const { record } = useResolutionActions()
+  return (
+    <div className="resolve">
+      <p className="part-help">{EXPOSURE_HELP.possibly_affected}</p>
+      <div className="resolve-choices" role="group" aria-label={`Which supplier made the ${part.name}?`}>
+        <span>Which supplier made it?</span>
+        {suppliersOf(part).map((supplier) => (
+          <button
+            key={supplier.id}
+            type="button"
+            disabled={record.isPending}
+            onClick={() => record.mutate({ toyId, part, supplier })}
+          >
+            {supplier.name}
+            {supplier.hasFinding && ' (flagged)'}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RecordedSupplier({ toyId, part, resolution }: { toyId: number; part: TracePart; resolution: Resolution }) {
+  const { withdraw } = useResolutionActions()
+  return (
+    <p className="resolution">
+      <span>
+        <strong>Made by {resolution.supplier.name}</strong>
+        <span className="muted">
+          {' '}
+          · recorded {formatDate(resolution.recordedAt)} by {resolution.recordedBy}
+        </span>
+      </span>
+      <button
+        type="button"
+        className="link-button"
+        disabled={withdraw.isPending}
+        onClick={() => withdraw.mutate({ toyId, part })}
+      >
+        Withdraw
+      </button>
+    </p>
+  )
+}
+
+function SourceList({ sources, resolution }: { sources: TraceSource[]; resolution?: Resolution | null }) {
   return (
     <ul className="sources">
-      {sources.map((source, index) => (
-        <li key={index}>
-          <Link to={`/suppliers/${source.supplier.id}`}>{source.supplier.name}</Link> ({source.supplier.country}) —{' '}
-          {plantName(source)}, {source.factory.country}
-          {source.hasFinding && <span className="tag-finding">Finding</span>}
-        </li>
-      ))}
+      {sources.map((source, index) => {
+        const notUsed = resolution != null && source.supplier.id !== resolution.supplier.id
+        return (
+          <li key={index} className={notUsed ? 'source-not-used' : undefined}>
+            <Link to={`/suppliers/${source.supplier.id}`}>{source.supplier.name}</Link> ({source.supplier.country}) —{' '}
+            {plantName(source)}, {source.factory.country}
+            {source.hasFinding && <span className="tag-finding">Finding</span>}
+            {resolution && (notUsed ? <span className="muted"> not used</span> : <span className="tag-used">Used</span>)}
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -159,21 +239,23 @@ interface SupplierInChain {
   name: string
   country: string
   hasFinding: boolean
-  /** The parts of this toy the supplier can make, and who else can make each. */
-  parts: { part: TracePart; alternatives: string[] }[]
+  /** The parts of this toy the supplier can make (or made), and who else could. */
+  parts: { part: TracePart; alternatives: string[]; recorded: boolean }[]
   onlySourceOfSomething: boolean
 }
 
 function supplierCount(part: TracePart): number {
-  return new Set(part.sources.map((source) => source.supplier.id)).size
+  return new Set(effectiveSources(part).map((source) => source.supplier.id)).size
 }
 
 /** The same chain turned around: each supplier behind the toy, with the parts it can make. */
 function groupBySupplier(parts: TracePart[]): SupplierInChain[] {
   const byId = new Map<number, SupplierInChain>()
   for (const part of parts) {
-    const names = new Map(part.sources.map((source) => [source.supplier.id, source.supplier.name]))
-    for (const source of part.sources) {
+    // Once a part is resolved, only the supplier that made it is behind this toy.
+    const sources = effectiveSources(part)
+    const names = new Map(sources.map((source) => [source.supplier.id, source.supplier.name]))
+    for (const source of sources) {
       let supplier = byId.get(source.supplier.id)
       if (!supplier) {
         supplier = { ...source.supplier, hasFinding: source.hasFinding, parts: [], onlySourceOfSomething: false }
@@ -181,7 +263,7 @@ function groupBySupplier(parts: TracePart[]): SupplierInChain[] {
       }
       if (supplier.parts.some((entry) => entry.part.id === part.id)) continue // a second factory of the same supplier
       const alternatives = [...names].filter(([id]) => id !== source.supplier.id).map(([, name]) => name)
-      supplier.parts.push({ part, alternatives })
+      supplier.parts.push({ part, alternatives, recorded: part.resolution !== null })
       if (alternatives.length === 0) supplier.onlySourceOfSomething = true
     }
   }
@@ -231,10 +313,12 @@ function BySupplier({ suppliers }: { suppliers: SupplierInChain[] }) {
                     {supplier.hasFinding && <span className="tag-finding">Finding</span>}
                   </td>
                   <td>
-                    {supplier.parts.map(({ part, alternatives }) => (
+                    {supplier.parts.map(({ part, alternatives, recorded }) => (
                       <div key={part.id}>
                         {part.name} <span className="code">{part.code}</span>{' '}
-                        {alternatives.length === 0 ? (
+                        {recorded ? (
+                          <span className="tag-used">Used</span>
+                        ) : alternatives.length === 0 ? (
                           <span className="only-source">only source</span>
                         ) : (
                           <span className="muted">or {alternatives.join(', ')}</span>

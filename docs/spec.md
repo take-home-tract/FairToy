@@ -58,7 +58,7 @@ A user signs in and belongs to one Finisher. They see and act on that Finisher's
 
 ## Exposure
 
-For one Finisher's toy, looking at every part and every possible source of each part:
+For one Finisher's toy, looking at every part and every possible source of each part (or, for a part the Finisher has resolved, only the supplier it recorded as having made it):
 
 | Outcome | Meaning |
 |---|---|
@@ -70,7 +70,9 @@ Affected wins over possibly affected when both apply.
 
 **What "affected" claims.** Affected means a toy's design uses a part that the implicated supplier could make. It does not mean units already shipped are tainted.
 
-Exposure is always computed from the current findings, never stored.
+Exposure is always computed from the current findings and resolutions, never stored.
+
+**Resolving a possibly affected part.** "Possibly affected" asks the Finisher to check its purchase records. Once it knows which supplier made a part of a toy, it records that: a **resolution**. From then on that part of that toy has one source, the recorded one, and the rule above applies unchanged: the part is affected if that supplier is implicated, and has no finding otherwise. A resolution is a fact about where a part came from, not a verdict, so it stays when findings change: if the recorded supplier is flagged later, the toy becomes affected. It belongs to one part of one toy, because the same part in another toy may have been bought from someone else. Like a finding, it records who made it and when, and can be withdrawn ([D21](decisions.md#d21-a-resolution-records-which-supplier-made-a-part-of-a-toy)).
 
 **Trace path**
 
@@ -94,7 +96,10 @@ A user signs in, and everything they see and do is limited to their Finisher. Th
 2. **Flag a supplier as using child labor** (record a child labor finding), picking it from the Finisher's own suppliers.
 3. **See which toys are affected**, traceable from the toy back through the parts to the flagged supplier. Each toy is *affected*, *possibly affected*, or has *no finding in its chain*, and the toy list can be filtered by that outcome.
 
-One addition of ours: **withdraw a finding**, so a mistaken click can be undone. A finding records who made it and when ([D4](decisions.md#d4-a-finding-can-be-recorded-and-withdrawn-with-no-history)).
+Two additions of ours:
+
+- **Withdraw a finding**, so a mistaken click can be undone. A finding records who made it and when ([D4](decisions.md#d4-a-finding-can-be-recorded-and-withdrawn-with-no-history)).
+- **Resolve a possibly affected part** by recording which of its possible suppliers made it, and withdraw that again ([D21](decisions.md#d21-a-resolution-records-which-supplier-made-a-part-of-a-toy)).
 
 Out of scope:
 
@@ -107,7 +112,7 @@ Out of scope:
 ## Extension points (not built now)
 
 - **Data entry.** Finishers entering or uploading their own suppliers, parts and toys. The assignment lists it in the company description but not in the task, so we start from seeded data.
-- **Purchase records.** Resolving a possibly-affected toy means checking which supplier actually delivered. We have no purchase data, so this could live in a separate system that feeds the app later.
+- **Purchase records.** Resolving a possibly-affected part means checking which supplier actually delivered. Today the Finisher records the answer by hand. A purchase records system could later fill in resolutions automatically, through the same table.
 - **Basic Materials.** They sell raw materials to suppliers, one level below them. The data has no companies and no supplier-to-material or part-to-material link, so there is no traceability. See [D7](decisions.md#d7-basic-materials-and-purchase-records-are-out-of-scope).
 - **Finding lifecycle.** Real programs go further than recording a finding: protect the child, recall, run a corrective action plan, verify, then clear, keeping an audit trail. We do not build this. Withdrawing is where it will attach: "recorded by mistake" and "cleared after remediation" become different outcomes. Background reading on how remediation works in practice:
   - [ETI: Advice to companies ending child labour](https://www.ethicaltrade.org/insights/blog/advice-to-companies-ending-child-labour)
@@ -123,6 +128,7 @@ The problem is solved when:
 3. Recording a finding against supplier X changes exactly the toys that reach X: *affected* where every source of some part is implicated, *possibly affected* where only some are. Each shows its path to X.
 4. A toy with no implicated source shows "No finding in its chain", never "safe".
 5. Withdrawing the finding restores the previous statuses.
+   - Recording which supplier made a possibly affected part makes the toy *affected* if that supplier is implicated and clears that part otherwise. Withdrawing the resolution restores the previous status. A resolution in one toy does not change another toy that uses the same part.
 6. A finding recorded by one Finisher does not change any other Finisher's view.
    - Without a valid sign-in, the API refuses every data request.
    - A signed-in user cannot read another Finisher's toys, parts or suppliers, or read or change its findings, by any request. The Finisher always comes from the sign-in, never from what the request says.

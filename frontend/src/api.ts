@@ -32,6 +32,8 @@ export interface ToyListItem {
   partCount: number
   /** The suppliers with a finding that can make one of the toy's parts. */
   flaggedSuppliers: SupplierRef[]
+  /** How many of its parts have a recorded supplier (a resolution). */
+  partsResolved: number
 }
 
 export interface ToysResult {
@@ -45,12 +47,21 @@ export interface TraceSource {
   hasFinding: boolean
 }
 
+/** Which supplier actually made a part of a toy, as the Finisher recorded it. */
+export interface Resolution {
+  supplier: SupplierRef
+  recordedAt: string
+  recordedBy: string
+}
+
 export interface TracePart {
   id: number
   code: string
   name: string
   exposure: Exposure
+  /** Every possible source, also when a resolution names the one that was used. */
   sources: TraceSource[]
+  resolution: Resolution | null
 }
 
 export interface ToyTrace {
@@ -174,6 +185,10 @@ export const api = {
     request<{ finding: Finding | null }>('PUT', `/api/suppliers/${supplierId}/finding`),
   withdrawFinding: (supplierId: number) =>
     request<{ finding: Finding | null }>('DELETE', `/api/suppliers/${supplierId}/finding`),
+  recordResolution: (toyId: number, partId: number, supplierId: number) =>
+    request<{ resolution: Resolution | null }>('PUT', `/api/toys/${toyId}/parts/${partId}/resolution`, { supplierId }),
+  withdrawResolution: (toyId: number, partId: number) =>
+    request<{ resolution: Resolution | null }>('DELETE', `/api/toys/${toyId}/parts/${partId}/resolution`),
 }
 
 /** An unknown id, another Finisher's id, or something that is not an id at all. */

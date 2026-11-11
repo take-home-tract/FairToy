@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { KESTREL, MOONPATH, flagSupplier, openSignedIn, withdrawAllFindings } from './helpers'
+import { KESTREL, MOONPATH, flagSupplier, openSignedIn, resetData } from './helpers'
 
 test.beforeEach(async ({ request }) => {
-  await withdrawAllFindings(request)
+  await resetData(request)
 })
 
 async function openToy(page: import('@playwright/test').Page, name: string) {
@@ -28,7 +28,7 @@ test('a toy shows every part and each part’s possible sources', async ({ page 
   await expect(page.locator('.tag-finding')).toHaveCount(0)
   // The chain in one sentence.
   await expect(page.locator('.chain-summary')).toHaveText(
-    '22 parts from 20 suppliers. 18 parts have a single possible supplier, 4 can come from more than one.',
+    '22 parts from 20 suppliers. 18 parts have a single known supplier, 4 can come from more than one.',
   )
 })
 

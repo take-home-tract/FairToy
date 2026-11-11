@@ -18,6 +18,8 @@ DATA_ENDPOINTS = [
     ("GET", "/api/suppliers/1"),
     ("PUT", "/api/suppliers/1/finding"),
     ("DELETE", "/api/suppliers/1/finding"),
+    ("PUT", "/api/toys/1/parts/1/resolution"),
+    ("DELETE", "/api/toys/1/parts/1/resolution"),
 ]
 
 
@@ -34,7 +36,7 @@ def moonpath(client):
 def test_the_list_above_covers_every_endpoint_except_login(app):
     """So a new endpoint cannot be added without also being checked here."""
     documented = {
-        (method.upper(), path.replace("{toy_id}", "1").replace("{supplier_id}", "1"))
+        (method.upper(), path.replace("{toy_id}", "1").replace("{supplier_id}", "1").replace("{part_id}", "1"))
         for path, methods in app.openapi()["paths"].items()
         for method in methods
     }
@@ -148,3 +150,37 @@ def test_every_finisher_sees_only_suppliers_that_its_own_toys_reach(client):
                 reached.update(s["supplier"]["id"] for s in part["sources"])
         listed = {s["id"] for s in client.get("/api/suppliers", headers=headers).json()["suppliers"]}
         assert listed == reached
+
+
+def test_a_resolution_by_one_finisher_is_invisible_to_another_and_cannot_be_withdrawn_by_it(
+    client, kestrel, moonpath, data_dir
+):
+    """Kestrel Play records which supplier made a part of one of its toys. Moonpath Brands, sending the
+    same requests to the same URLs, only ever reaches its own toys."""
+    lianfa = supplier_named(client, kestrel, "Lianfa Group")
+    client.put(f"/api/suppliers/{lianfa['id']}/finding", headers=kestrel)
+    toy = toy_coded(client, kestrel, "TOY-0029")
+    part = client.get(f"/api/toys/{toy['id']}", headers=kestrel).json()["parts"][0]  # soft filling, possibly affected
+    assert part["code"] == "PRT-0117"
+    everstar = next(s["supplier"] for s in part["sources"] if s["supplier"]["name"] == "Everstar Fabrication")
+    url = f"/api/toys/{toy['id']}/parts/{part['id']}/resolution"
+    assert client.put(url, json={"supplierId": everstar["id"]}, headers=kestrel).status_code == 200
+
+    theirs_before = client.get("/api/toys", headers=moonpath).json()
+    assert {t["partsResolved"] for t in theirs_before["toys"]} == {0}
+
+    # Moonpath Brands withdraws at the same URL: whatever it reaches is its own, never Kestrel's resolution.
+    client.delete(url, headers=moonpath)
+    mine = client.get(f"/api/toys/{toy['id']}", headers=kestrel).json()
+    resolved = next(p for p in mine["parts"] if p["id"] == part["id"])
+    assert resolved["resolution"]["supplier"]["name"] == "Everstar Fabrication"
+    assert client.get("/api/toys", headers=moonpath).json() == theirs_before
+
+    from app.db import connect, finisher_db_path
+
+    counts = []
+    for _u, finisher_id, _n, _c in USERS:
+        db = connect(finisher_db_path(data_dir, finisher_id))
+        counts.append(db.execute("SELECT COUNT(*) FROM part_resolution").fetchone()[0])
+        db.close()
+    assert counts == [0, 1, 0, 0, 0, 0, 0, 0]

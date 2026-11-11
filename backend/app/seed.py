@@ -16,7 +16,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app import config
-from app.db import ACCOUNTS_SCHEMA, FINISHER_SCHEMA, accounts_db_path, connect, finisher_db_path
+from app.db import (
+    ACCOUNTS_SCHEMA,
+    FINISHER_SCHEMA,
+    PART_RESOLUTION_SCHEMA,
+    accounts_db_path,
+    connect,
+    finisher_db_path,
+)
 from app.security import hash_password
 
 
@@ -136,7 +143,7 @@ def seed(csv_dir: Path, data_dir: Path, password: str) -> list[FinisherSummary]:
 
         db = connect(finisher_db_path(data_dir, finisher_ids[code]), create=True)
         with db:
-            db.executescript(FINISHER_SCHEMA)
+            db.executescript(FINISHER_SCHEMA + PART_RESOLUTION_SCHEMA)
             toy_id, part_id, supplier_id = {}, {}, {}
             for t in my_toys:
                 cur = db.execute("INSERT INTO toy (code, name) VALUES (?, ?)", (t["toy_id"], t["toy_name"]))

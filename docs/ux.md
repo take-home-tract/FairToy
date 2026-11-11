@@ -14,6 +14,7 @@ Their jobs, in order of urgency:
 2. **"Why is this toy marked?"** Follow the trace from the toy to the supplier.
 3. **"What is my exposure right now?"** See totals and filter the toys.
 4. **"I picked the wrong one."** Undo it.
+5. **"I checked my purchase records."** Record which supplier made a possibly affected part, and see the toy settle.
 
 ## Principles
 
@@ -36,7 +37,8 @@ Maria works at Kestrel Play. A report names Lianfa Group.
 5. She opens **Toys**, filtered to Affected. 13 toys are listed.
 6. She opens **Marble Digger**. It says: *Affected. The part "wheel" can only come from Lianfa Group, which you flagged.* One more part, "zip fastener", is only possibly affected.
 7. She opens **Lantern Crane**. It says: *Possibly affected. "soft filling" can come from Lianfa Group (flagged) or Everstar Fabrication. We cannot tell which was used. Check your purchase records.*
-8. If it was the wrong supplier, she presses **Undo**, or **Withdraw finding** later on the supplier.
+8. Her purchase records say the soft filling came from Everstar Fabrication. Under the part, *Which supplier made it?*, she presses **Everstar Fabrication**. Lantern Crane now has no finding in its chain, and the part moves to *Parts you resolved*, with who recorded it and when. The Toys page shows 13 affected, 8 possibly affected.
+9. If it was the wrong supplier, she presses **Undo**, or **Withdraw finding** later on the supplier.
 
 ## Screens
 
@@ -98,11 +100,24 @@ A possibly affected toy shows the alternative:
     Lianfa Group (Turkey) — Cavite Plant, Philippines     [Finding]
     Everstar Fabrication (Thailand) — Katowice Plant, Poland
   We cannot tell which supplier made it. Check your purchase records.
+  Which supplier made it?  [ Lianfa Group (flagged) ]  [ Everstar Fabrication ]
 ```
+
+Choosing one records a resolution (with Undo, as after flagging). The part then reads:
+
+```text
+Parts you resolved (1)
+  soft filling  PRT-0117                                   - No finding
+    Lianfa Group (Turkey) — Cavite Plant, Philippines     [Finding]  not used
+    Everstar Fabrication (Thailand) — Katowice Plant, Poland  [Used]
+    Made by Everstar Fabrication · recorded 11 Nov 2026 by kestrel-play      Withdraw
+```
+
+Had she chosen Lianfa Group, the part and the toy would be Affected, and the why line says the part *came from* Lianfa Group. A resolved part stays in view, in *Parts touched by a finding* or in *Parts you resolved*, so it can be checked or withdrawn. In the Toys list the toy shows "1 part resolved".
 
 Parts touched by a finding come first and are open. Parts with no finding are collapsed into a compact table, since a toy has dozens of parts (a median of 35 in the sample data). With no finding at all, the table is open.
 
-Above the chain, one sentence sums it up (*22 parts from 20 suppliers. 18 parts have a single possible supplier, 4 can come from more than one.*), and a switch offers a second reading of the same chain, **By supplier**:
+Above the chain, one sentence sums it up (*22 parts from 20 suppliers. 18 parts have a single known supplier, 4 can come from more than one.*), and a switch offers a second reading of the same chain, **By supplier**:
 
 ```text
 Flagged (1)
@@ -181,6 +196,8 @@ If some of those toys are already exposed through other findings, the dialog cou
 | No finding help | You have recorded no finding that touches this toy. This does not mean it is safe. |
 | Primary action | Flag supplier |
 | Undo action | Withdraw finding |
+| Resolution prompt | Which supplier made it? |
+| Resolved part | Made by *supplier* · recorded *date* by *user* |
 | Domain word in UI | "Finding" for the record, "flag" for the verb |
 
 ## States

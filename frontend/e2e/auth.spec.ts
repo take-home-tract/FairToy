@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { KESTREL, MOONPATH, openSignedIn, signIn, summaryCounts, withdrawAllFindings } from './helpers'
+import { KESTREL, MOONPATH, openSignedIn, signIn, summaryCounts, resetData } from './helpers'
 
 test.beforeEach(async ({ request }) => {
-  await withdrawAllFindings(request)
+  await resetData(request)
 })
 
 test('a signed-out visitor is sent to sign in, and returns to the same page afterwards', async ({ page }) => {

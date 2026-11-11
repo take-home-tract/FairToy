@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { KESTREL, signIn, summaryCounts, supplierRow, withdrawAllFindings } from './helpers'
+import { KESTREL, signIn, summaryCounts, supplierRow, resetData } from './helpers'
 
 test.beforeEach(async ({ request }) => {
-  await withdrawAllFindings(request)
+  await resetData(request)
 })
 
 // The walkthrough in docs/ux.md, step by step: Maria works at Kestrel Play, and a report names Lianfa Group.
@@ -48,10 +48,19 @@ test('walkthrough: flag a reported supplier, see what it touches and why, then u
     'Why: “soft filling” can come from Lianfa Group (flagged) or Everstar Fabrication. We cannot tell which was used. Check your purchase records.',
   )
 
-  // 8. It was the wrong supplier: she withdraws the finding on the supplier.
+  // 8. Her purchase records say the soft filling came from Everstar Fabrication. She records it.
+  await page.getByRole('group', { name: 'Which supplier made the soft filling?' })
+    .getByRole('button', { name: 'Everstar Fabrication' })
+    .click()
+  await expect(page.locator('.title-row .badge')).toHaveText('–No finding')
+  await expect(page.getByRole('heading', { name: 'Parts you resolved (1)' })).toBeVisible()
+  await page.getByRole('link', { name: 'Toys', exact: true }).click()
+  expect(await summaryCounts(page)).toEqual([40, 13, 8, 19])
+
+  // 9. It was the wrong supplier after all: she withdraws the finding on the supplier.
   await page.getByRole('link', { name: 'Suppliers' }).click()
   await supplierRow(page, 'SUP-028').getByRole('button', { name: 'Withdraw finding' }).click()
   await expect(supplierRow(page, 'SUP-028')).toContainText('None')
-  await page.getByRole('link', { name: 'Toys' }).click()
+  await page.getByRole('link', { name: 'Toys', exact: true }).click()
   expect(await summaryCounts(page)).toEqual([40, 0, 0, 40])
 })

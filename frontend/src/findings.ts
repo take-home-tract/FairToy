@@ -7,6 +7,15 @@ interface SupplierRef {
   name: string
 }
 
+/** Every list and detail on screen depends on findings and resolutions. */
+function useRefetchAll() {
+  const queryClient = useQueryClient()
+  return () =>
+    Promise.all(
+      ['toys', 'toy', 'suppliers', 'supplier'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+    )
+}
+
 /**
  * Record and withdraw a finding.
  *
@@ -15,14 +24,8 @@ interface SupplierRef {
  * server has confirmed. A failed change leaves the screen as it was.
  */
 export function useFindingActions() {
-  const queryClient = useQueryClient()
+  const refetchAll = useRefetchAll()
   const { show } = useNotice()
-
-  // Every list and detail on screen depends on the findings.
-  const refetchAll = () =>
-    Promise.all(
-      ['toys', 'toy', 'suppliers', 'supplier'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
-    )
 
   const withdraw = useMutation({
     mutationFn: (supplier: SupplierRef) => api.withdrawFinding(supplier.id),
@@ -41,6 +44,44 @@ export function useFindingActions() {
       await refetchAll()
       show({ text: `${supplier.name} flagged.`, action: { label: 'Undo', run: () => withdraw.mutate(supplier) } })
     },
+  })
+
+  return { record, withdraw }
+}
+
+interface ResolutionTarget {
+  toyId: number
+  part: { id: number; name: string }
+}
+
+/**
+ * Record and withdraw which supplier made a part of a toy (a resolution).
+ * Same rules as findings: refetch after the change, report only what the server confirmed.
+ */
+export function useResolutionActions() {
+  const refetchAll = useRefetchAll()
+  const { show } = useNotice()
+
+  const withdraw = useMutation({
+    mutationFn: (target: ResolutionTarget) => api.withdrawResolution(target.toyId, target.part.id),
+    onSuccess: async (_result, target) => {
+      await refetchAll()
+      show({ text: `Supplier of “${target.part.name}” no longer recorded.` })
+    },
+    onError: (error) => show({ text: `Could not withdraw it. ${error.message}` }),
+  })
+
+  const record = useMutation({
+    mutationFn: (target: ResolutionTarget & { supplier: SupplierRef }) =>
+      api.recordResolution(target.toyId, target.part.id, target.supplier.id),
+    onSuccess: async (_result, target) => {
+      await refetchAll()
+      show({
+        text: `Recorded: “${target.part.name}” came from ${target.supplier.name}.`,
+        action: { label: 'Undo', run: () => withdraw.mutate(target) },
+      })
+    },
+    onError: (error) => show({ text: `Could not record it. ${error.message}` }),
   })
 
   return { record, withdraw }

@@ -72,6 +72,22 @@ CREATE TABLE child_labor_finding (
 """
 
 
+# Added after the first release: which supplier actually made one part of one
+# toy, as the Finisher recorded it (docs/decisions.md, D21). The seed creates it
+# in new databases; `upgrade_databases` adds it to databases seeded before.
+PART_RESOLUTION_SCHEMA = """
+CREATE TABLE IF NOT EXISTS part_resolution (
+    toy_id      INTEGER NOT NULL,
+    part_id     INTEGER NOT NULL,
+    supplier_id INTEGER NOT NULL REFERENCES supplier (id),
+    recorded_by TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    PRIMARY KEY (toy_id, part_id),
+    FOREIGN KEY (toy_id, part_id) REFERENCES toy_part (toy_id, part_id)
+);
+"""
+
+
 def accounts_db_path(data_dir: Path) -> Path:
     return data_dir / "accounts.db"
 
@@ -99,3 +115,23 @@ def connect(path: Path, *, create: bool = False) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+def upgrade_databases(data_dir: Path) -> None:
+    """Bring every Finisher database up to the current schema. Safe to run on every start.
+
+    A schema change has to reach every Finisher's file (docs/design.md, "What
+    breaks first"). Today that is one table, created only where it is missing,
+    so recorded findings are never touched.
+    """
+    accounts = connect(accounts_db_path(data_dir))
+    try:
+        finisher_ids = [row["id"] for row in accounts.execute("SELECT id FROM finisher")]
+    finally:
+        accounts.close()
+    for finisher_id in finisher_ids:
+        db = connect(finisher_db_path(data_dir, finisher_id))
+        try:
+            db.executescript(PART_RESOLUTION_SCHEMA)
+        finally:
+            db.close()

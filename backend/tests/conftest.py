@@ -50,4 +50,5 @@ def no_findings_left_behind(request):
         db = connect(finisher_db_path(data_dir, finisher_id))
         with db:
             db.execute("DELETE FROM child_labor_finding")
+            db.execute("DELETE FROM part_resolution")
         db.close()

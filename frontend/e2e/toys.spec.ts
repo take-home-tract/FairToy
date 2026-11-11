@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { KESTREL, MOONPATH, flagSupplier, openSignedIn, summaryCounts, withdrawAllFindings } from './helpers'
+import { KESTREL, MOONPATH, flagSupplier, openSignedIn, summaryCounts, resetData } from './helpers'
 
 // Numbers from the sample data: Kestrel Play has 40 toys. Lianfa Group reaches
 // 22 of them: 13 affected, 9 possibly affected (docs/ux.md).
 
 test.beforeEach(async ({ request }) => {
-  await withdrawAllFindings(request)
+  await resetData(request)
 })
 
 test('with no findings, every toy has no finding and the page says how to start', async ({ page }) => {

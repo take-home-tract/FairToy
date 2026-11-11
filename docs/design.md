@@ -117,14 +117,22 @@ erDiagram
     CHILD_LABOR_FINDING { int supplier_id "PK, FK"
         string recorded_by
         datetime recorded_at }
+    TOY_PART ||--o| PART_RESOLUTION : "resolved by"
+    SUPPLIER ||--o{ PART_RESOLUTION : "recorded as maker"
+    PART_RESOLUTION { int toy_id "PK, FK"
+        int part_id "PK, FK"
+        int supplier_id FK
+        string recorded_by
+        datetime recorded_at }
 ```
 
 - **Users.** A user belongs to exactly one Finisher. The Finisher of every request comes from the signed-in user ([D16](decisions.md#d16-authentication-seeded-users-and-a-signed-token)).
 - **Ownership.** A Finisher's toys, parts, suppliers and findings are the contents of its own database. Nothing is shared between Finishers ([D2](decisions.md#d2-all-of-a-finishers-data-belongs-to-it)), and a request opens only the database of the signed-in user's Finisher ([D17](decisions.md#d17-isolation-is-structural-one-database-per-finisher)). `code` is the Finisher's own reference (for example `TOY-0275`), shown on screen and unique within a Finisher.
-- **One finding per supplier.** It is the only record the app creates. It stores the username of the user who recorded it as text, because users live in the accounts database and a foreign key cannot cross databases. Everything else is read-only seeded data ([D4](decisions.md#d4-a-finding-can-be-recorded-and-withdrawn-with-no-history), [D6](decisions.md#d6-data-is-seeded-not-entered)).
+- **One finding per supplier.** Findings and resolutions are the only records the app creates. It stores the username of the user who recorded it as text, because users live in the accounts database and a foreign key cannot cross databases. Everything else is read-only seeded data ([D4](decisions.md#d4-a-finding-can-be-recorded-and-withdrawn-with-no-history), [D6](decisions.md#d6-data-is-seeded-not-entered)).
 - **Factory is a detail, not a record.** Where a part is made is three plain fields on the part source (code, name, country). The code tells apart factories that share a name. Findings are not made against factories, so a factory needs no identity of its own. Factories that make no part are not kept ([D10](decisions.md#d10-model-for-the-trace-not-for-the-csv-files)).
 - **Supplier, not a generic provider.** Basic Materials would add a branch below the supplier: toy, part, the supplier that makes it, then the company that supplies that supplier's material. It needs new data (companies, part-to-material, material sourcing) and is not a type value on supplier ([D7](decisions.md#d7-basic-materials-and-purchase-records-are-out-of-scope)).
-- **Exposure is a query, not a table.** For a toy: take its parts, take each part's distinct suppliers, and check which of them have a finding ([D5](decisions.md#d5-exposure-is-computed-never-stored)). Two factories of the same supplier count as one supplier.
+- **At most one resolution per part of a toy.** It names the supplier the Finisher recorded as having made that part of that toy, and who recorded it and when. Its key is the toy-part link, so it cannot name a part the toy does not use. That the supplier is one of the part's possible sources is checked by the service ([D21](decisions.md#d21-a-resolution-records-which-supplier-made-a-part-of-a-toy)).
+- **Exposure is a query, not a table.** For a toy: take its parts, take each part's distinct suppliers (or only the recorded one, for a resolved part), and check which of them have a finding ([D5](decisions.md#d5-exposure-is-computed-never-stored)). Two factories of the same supplier count as one supplier.
 
 ## Schema
 
@@ -147,9 +155,11 @@ Relational, one table per entity in the data model. Keys are integer ids; `code`
 | `toy_part` | `toy_id`, `part_id` | PK (`toy_id`, `part_id`); FKs; index on `part_id` |
 | `part_source` | `id`, `part_id`, `supplier_id`, `factory_code`, `factory_name`, `factory_country` | PK `id`; FKs; unique (`part_id`, `factory_code`); index on `supplier_id` |
 | `child_labor_finding` | `supplier_id`, `recorded_by`, `recorded_at` | PK `supplier_id`; FK `supplier_id` |
+| `part_resolution` | `toy_id`, `part_id`, `supplier_id`, `recorded_by`, `recorded_at` | PK (`toy_id`, `part_id`); FK (`toy_id`, `part_id`) to `toy_part`; FK `supplier_id` |
 
 - All columns are required. The factory fields are always present once the blank city and address are dropped ([D9](decisions.md#d9-drop-data-the-trace-does-not-need)).
-- Foreign keys are enforced. SQLite only does this when `PRAGMA foreign_keys = ON` is set on each connection, which happens in the one place connections are opened. Seeded data is never deleted. Only `child_labor_finding` is written by the app.
+- Foreign keys are enforced. SQLite only does this when `PRAGMA foreign_keys = ON` is set on each connection, which happens in the one place connections are opened. Seeded data is never deleted. Only `child_labor_finding` and `part_resolution` are written by the app.
+- `part_resolution` was added after the first release. The seed creates it, and at startup the API creates it in any Finisher database that lacks it, so databases seeded earlier keep their findings. This is the "every schema change has to reach every file" cost of one database per Finisher, kept to a `CREATE TABLE IF NOT EXISTS`.
 - A link cannot cross Finishers, because a foreign key can only point inside its own database.
 - Each Finisher database is a file named after the Finisher's numeric id (for example `finisher-2.db`). The name is built from the accounts database, never from anything in the request.
 - The users table is `app_user`, not `user`, because `user` is a reserved word in PostgreSQL.
@@ -188,9 +198,9 @@ flowchart LR
 | Routers | HTTP: paths, parameters, status codes, error shape | Exposure rules, SQL |
 | Auth | Checks credentials and issues the token; turns a request's token into the current user, and hands the request a connection to that user's Finisher database, or refuses with 401. The only component that knows there is more than one Finisher | Exposure rules |
 | Schemas | The API contract as typed models ([api.md](api.md)) | Storage |
-| Services | One use case each: build a toy trace, list suppliers and the toys each reaches, record or withdraw a finding | HTTP |
+| Services | One use case each: build a toy trace, list suppliers and the toys each reaches, record or withdraw a finding or a resolution | HTTP |
 | Exposure calculator | The spec's exposure rule, as a pure function | Database, HTTP |
-| Repository | The few queries that fetch facts and the two writes, on the connection it is given | Exposure rules, other Finishers |
+| Repository | The few queries that fetch facts and the writes (findings, resolutions), on the connection it is given | Exposure rules, other Finishers |
 
 **Isolation rule:** no router reads a Finisher from the request, and no service or repository function takes a Finisher id at all. The auth component turns the token into a user, looks up that user's Finisher in the accounts database, and hands the request one connection to that Finisher's database. Everything after that works on that connection. A query that forgets a filter still cannot return another Finisher's rows, because they are not in the file ([D17](decisions.md#d17-isolation-is-structural-one-database-per-finisher), [D11](decisions.md#d11-the-api-is-scoped-by-the-signed-in-user-and-findings-are-an-idempotent-sub-resource)). The one place that can get this wrong is the function that picks the database for a user, so it is a single small function with its own tests.
 
@@ -203,6 +213,7 @@ Rule: dependencies point one way, routers to services to calculator and reposito
 - **Part:** `affected` if every supplier of the part is implicated; `possibly_affected` if some are; otherwise `no_finding`. A part with no suppliers is `no_finding`.
 - **Toy:** the most severe of its parts.
 - **Preview:** the same function called with the implicated set plus one supplier gives `exposureIfFlagged`.
+- **Resolutions** do not reach the calculator as a separate input. When the facts are loaded, a resolved part of a toy gets one supplier, the recorded one, instead of all its possible sources. The rule stays in one place and does not change.
 
 One request loads a Finisher's facts with a single query (a few thousand rows) and the calculator does the rest.
 

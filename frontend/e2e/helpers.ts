@@ -45,14 +45,44 @@ export async function flagSupplier(request: APIRequestContext, username: string,
   expect(response.ok()).toBeTruthy()
 }
 
-/** Withdraw every finding of the given users, so each test starts from a clean state. */
-export async function withdrawAllFindings(request: APIRequestContext, usernames = [KESTREL, MOONPATH]) {
+/** Withdraw every finding and resolution of the given users, so each test starts from a clean state. */
+export async function resetData(request: APIRequestContext, usernames = [KESTREL, MOONPATH]) {
   for (const username of usernames) {
     const headers = await authHeaders(request, username)
+    const toys: { id: number; partsResolved: number }[] = (await (await request.get('/api/toys', { headers })).json()).toys
+    for (const toy of toys.filter((t) => t.partsResolved > 0)) {
+      const parts: { id: number; resolution: unknown }[] = (await (await request.get(`/api/toys/${toy.id}`, { headers })).json()).parts
+      for (const part of parts.filter((p) => p.resolution)) {
+        await request.delete(`/api/toys/${toy.id}/parts/${part.id}/resolution`, { headers })
+      }
+    }
     for (const supplier of await suppliersOf(request, headers)) {
       if (supplier.finding) await request.delete(`/api/suppliers/${supplier.id}/finding`, { headers })
     }
   }
+}
+
+/** Record which supplier made a part of a toy, as the given user, without going through the UI. */
+export async function resolvePart(
+  request: APIRequestContext,
+  username: string,
+  toyCode: string,
+  partCode: string,
+  supplierName: string,
+) {
+  const headers = await authHeaders(request, username)
+  const toys: { id: number; code: string }[] = (await (await request.get('/api/toys', { headers })).json()).toys
+  const toy = toys.find((t) => t.code === toyCode)!
+  const parts: { id: number; code: string; sources: { supplier: { id: number; name: string } }[] }[] = (
+    await (await request.get(`/api/toys/${toy.id}`, { headers })).json()
+  ).parts
+  const part = parts.find((p) => p.code === partCode)!
+  const supplier = part.sources.find((s) => s.supplier.name === supplierName)!.supplier
+  const response = await request.put(`/api/toys/${toy.id}/parts/${part.id}/resolution`, {
+    headers,
+    data: { supplierId: supplier.id },
+  })
+  expect(response.ok()).toBeTruthy()
 }
 
 /** The four numbers at the top of the Toys page: total, affected, possibly affected, no finding. */

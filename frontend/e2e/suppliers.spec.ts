@@ -7,14 +7,14 @@ import {
   summaryCounts,
   supplierRow,
   todayAsShown,
-  withdrawAllFindings,
+  resetData,
 } from './helpers'
 
 // Lianfa Group is SUP-028. It reaches 22 of Kestrel Play's 40 toys.
 const LIANFA = 'SUP-028'
 
 test.beforeEach(async ({ request }) => {
-  await withdrawAllFindings(request)
+  await resetData(request)
 })
 
 test('lists the Finisher’s own suppliers with the toys each reaches and no findings', async ({ page }) => {

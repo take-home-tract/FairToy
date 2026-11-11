@@ -586,3 +586,45 @@ td .sources {
   padding: 0;
   list-style: none;
 }
+
+/* Resolutions: which supplier actually made a part */
+.small {
+  font-size: 0.8rem;
+}
+
+.tag-used {
+  display: inline-block;
+  margin: 0 0.3rem;
+  padding: 0 0.45rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.source-not-used {
+  color: var(--muted);
+}
+
+.source-not-used a {
+  color: var(--muted);
+}
+
+.resolve-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.resolution {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}

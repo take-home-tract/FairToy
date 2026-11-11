@@ -96,7 +96,9 @@ def test_no_finisher_database_has_a_finisher_column(seeded):
     data_dir, _ = seeded
     db = connect(finisher_db_path(data_dir, 1))
     tables = [r["name"] for r in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")]
-    assert sorted(tables) == ["child_labor_finding", "part", "part_source", "supplier", "toy", "toy_part"]
+    assert sorted(tables) == [
+        "child_labor_finding", "part", "part_resolution", "part_source", "supplier", "toy", "toy_part",
+    ]
     for table in tables:
         columns = [r["name"] for r in db.execute(f"PRAGMA table_info({table})")]
         assert not [c for c in columns if "finisher" in c]

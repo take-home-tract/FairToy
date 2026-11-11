@@ -46,7 +46,10 @@ def test_with_no_findings_every_toy_has_no_finding_and_is_sorted_by_name(client,
     names = [t["name"].lower() for t in body["toys"]]
     assert names == sorted(names)
     assert {tuple(t["flaggedSuppliers"]) for t in body["toys"]} == {()}
-    assert set(body["toys"][0]) == {"id", "code", "name", "exposure", "partsTouched", "partCount", "flaggedSuppliers"}
+    assert {t["partsResolved"] for t in body["toys"]} == {0}
+    assert set(body["toys"][0]) == {
+        "id", "code", "name", "exposure", "partsTouched", "partCount", "flaggedSuppliers", "partsResolved",
+    }
 
 
 # --- 2. each toy shows its parts, and each part its possible sources ---

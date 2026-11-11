@@ -3,7 +3,7 @@
 That connection is already the signed-in user's Finisher database (app/auth.py),
 so nothing here takes or filters by a Finisher: there is only one in the file.
 No exposure rules live here either; this module only fetches facts and makes
-the two writes.
+the writes (findings and resolutions).
 """
 
 import sqlite3
@@ -14,35 +14,36 @@ from dataclasses import dataclass, field
 class Facts:
     """Everything the exposure calculator needs for one Finisher."""
 
-    # toy id -> part id -> ids of the suppliers that can make the part
+    # part id -> every supplier that can make it
+    sources_of_part: dict[int, set[int]] = field(default_factory=dict)
+    # toy id -> part id -> the suppliers that may have made that part of that toy:
+    # every possible source, or only the one the Finisher recorded as used (a resolution)
     parts_of_toy: dict[int, dict[int, set[int]]] = field(default_factory=dict)
     # ids of the suppliers with a finding
     implicated: set[int] = field(default_factory=set)
-
-    def suppliers_of_part(self) -> dict[int, set[int]]:
-        """part id -> ids of the suppliers that can make it (every part is used by some toy)."""
-        result: dict[int, set[int]] = {}
-        for parts in self.parts_of_toy.values():
-            result.update(parts)
-        return result
+    # (toy id, part id) -> the supplier recorded as having made it
+    resolutions: dict[tuple[int, int], int] = field(default_factory=dict)
 
 
 def load_facts(db: sqlite3.Connection) -> Facts:
-    """One pass over the links: a few thousand rows per Finisher (D12)."""
+    """A few passes over a few thousand rows per Finisher (D12).
+
+    A resolution narrows the possible sources of one part of one toy to the
+    supplier that was used. The exposure rule itself does not change (D21).
+    """
     facts = Facts()
+    for row in db.execute("SELECT part_id, supplier_id FROM part_source"):
+        facts.sources_of_part.setdefault(row["part_id"], set()).add(row["supplier_id"])
+    for row in db.execute("SELECT toy_id, part_id, supplier_id FROM part_resolution"):
+        facts.resolutions[(row["toy_id"], row["part_id"])] = row["supplier_id"]
     for toy in db.execute("SELECT id FROM toy"):
         facts.parts_of_toy[toy["id"]] = {}
-    # LEFT JOIN: a part with no known source still belongs to its toy.
-    rows = db.execute(
-        """
-        SELECT tp.toy_id, tp.part_id, ps.supplier_id
-        FROM toy_part tp LEFT JOIN part_source ps ON ps.part_id = tp.part_id
-        """
-    )
-    for row in rows:
-        suppliers = facts.parts_of_toy[row["toy_id"]].setdefault(row["part_id"], set())
-        if row["supplier_id"] is not None:
-            suppliers.add(row["supplier_id"])
+    for row in db.execute("SELECT toy_id, part_id FROM toy_part"):
+        used = facts.resolutions.get((row["toy_id"], row["part_id"]))
+        # A part with no known source still belongs to its toy, with no supplier.
+        facts.parts_of_toy[row["toy_id"]][row["part_id"]] = (
+            {used} if used is not None else set(facts.sources_of_part.get(row["part_id"], ()))
+        )
     facts.implicated.update(r["supplier_id"] for r in db.execute("SELECT supplier_id FROM child_labor_finding"))
     return facts
 
@@ -113,7 +114,38 @@ def list_parts_of_supplier(db: sqlite3.Connection, supplier_id: int) -> list[sql
     ).fetchall()
 
 
-# --- the two writes ---
+def list_resolutions_of_toy(db: sqlite3.Connection, toy_id: int) -> list[sqlite3.Row]:
+    return db.execute(
+        """
+        SELECT r.part_id, r.recorded_by, r.recorded_at, s.id AS supplier_id, s.name AS supplier_name
+        FROM part_resolution r JOIN supplier s ON s.id = r.supplier_id
+        WHERE r.toy_id = ?
+        """,
+        (toy_id,),
+    ).fetchall()
+
+
+def get_resolution(db: sqlite3.Connection, toy_id: int, part_id: int) -> sqlite3.Row | None:
+    rows = [r for r in list_resolutions_of_toy(db, toy_id) if r["part_id"] == part_id]
+    return rows[0] if rows else None
+
+
+def get_part_of_toy(db: sqlite3.Connection, toy_id: int, part_id: int) -> sqlite3.Row | None:
+    return db.execute(
+        """
+        SELECT p.id, p.code, p.name
+        FROM toy_part tp JOIN part p ON p.id = tp.part_id
+        WHERE tp.toy_id = ? AND tp.part_id = ?
+        """,
+        (toy_id, part_id),
+    ).fetchone()
+
+
+def suppliers_of_part(db: sqlite3.Connection, part_id: int) -> set[int]:
+    return {r["supplier_id"] for r in db.execute("SELECT supplier_id FROM part_source WHERE part_id = ?", (part_id,))}
+
+
+# --- the writes: findings and resolutions ---
 
 
 def record_finding(db: sqlite3.Connection, supplier_id: int, recorded_by: str, recorded_at: str) -> None:
@@ -129,3 +161,32 @@ def withdraw_finding(db: sqlite3.Connection, supplier_id: int) -> None:
     """Idempotent: withdrawing a finding that is not there changes nothing."""
     with db:
         db.execute("DELETE FROM child_labor_finding WHERE supplier_id = ?", (supplier_id,))
+
+
+def record_resolution(
+    db: sqlite3.Connection, toy_id: int, part_id: int, supplier_id: int, recorded_by: str, recorded_at: str
+) -> None:
+    """Record which supplier made a part of a toy.
+
+    Recording the same supplier again changes nothing. Recording another one
+    replaces it, with the new who and when.
+    """
+    with db:
+        db.execute(
+            """
+            INSERT INTO part_resolution (toy_id, part_id, supplier_id, recorded_by, recorded_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (toy_id, part_id) DO UPDATE SET
+                supplier_id = excluded.supplier_id,
+                recorded_by = excluded.recorded_by,
+                recorded_at = excluded.recorded_at
+            WHERE part_resolution.supplier_id != excluded.supplier_id
+            """,
+            (toy_id, part_id, supplier_id, recorded_by, recorded_at),
+        )
+
+
+def withdraw_resolution(db: sqlite3.Connection, toy_id: int, part_id: int) -> None:
+    """Idempotent: withdrawing a resolution that is not there changes nothing."""
+    with db:
+        db.execute("DELETE FROM part_resolution WHERE toy_id = ? AND part_id = ?", (toy_id, part_id))

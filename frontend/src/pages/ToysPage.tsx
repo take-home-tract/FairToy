@@ -5,6 +5,7 @@ import { api, type Exposure, type ToySummary } from '../api'
 import { ExposureBadge } from '../components/ExposureBadge'
 import { EmptyState, ErrorState, Skeleton } from '../components/States'
 import { EXPOSURE_LABEL, EXPOSURE_SHORT_LABEL, EXPOSURES, isExposure } from '../exposure'
+import { plural } from '../format'
 
 function countOf(summary: ToySummary, exposure: Exposure): number {
   return { affected: summary.affected, possibly_affected: summary.possiblyAffected, no_finding: summary.noFinding }[exposure]
@@ -118,6 +119,9 @@ export function ToysPage() {
                 <td className="code">{toy.code}</td>
                 <td>
                   <ExposureBadge exposure={toy.exposure} />
+                  {toy.partsResolved > 0 && (
+                    <div className="muted small">{plural(toy.partsResolved, 'part')} resolved</div>
+                  )}
                 </td>
                 <td>
                   {toy.flaggedSuppliers.length === 0 ? (
