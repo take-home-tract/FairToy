@@ -184,9 +184,9 @@ Ids are internal and unrelated to codes.
 
 ```mermaid
 flowchart LR
-    R[Routers<br/>auth, toys, suppliers, findings] --> A[Auth<br/>token to user, then to that Finisher's database]
+    R[Routers<br/>auth, toys, suppliers, findings, resolutions] --> A[Auth<br/>token to user, then to that Finisher's database]
     A --> ACC[(Accounts database)]
-    R --> S[Services<br/>trace, suppliers, findings]
+    R --> S[Services<br/>trace, suppliers, findings, resolutions]
     R --- M[Schemas<br/>request and response models]
     S --> C[Exposure calculator<br/>pure, no database]
     S --> Q[Repository<br/>queries]
@@ -222,26 +222,23 @@ One request loads a Finisher's facts with a single query (a few thousand rows) a
 ```text
 App shell                 top bar: Finisher name, user, sign out, Toys / Suppliers tabs
   LoginPage               shown whenever there is no valid token
-  ToysPage
-    ExposureSummary       the three counts
-    ExposureFilter        All / Affected / Possibly affected / No finding
-    SearchBox
-    ToyTable
-  ToyTracePage
-    TraceHeader           toy, exposure, one-sentence why
-    PartTrace             one part and its possible sources
-    CollapsedParts        parts with no finding
-  SuppliersPage
-    SupplierTable         with flag / withdraw buttons
-    SupplierDetail        reached toys, exposure now
+  ToysPage                the three counts, exposure filter (in the URL), search,
+                          toy table with the flagged suppliers behind each toy
+  ToyTracePage            toy, exposure, one-sentence why, and the chain:
+    By part               parts touched by a finding, parts you resolved, other parts (collapsed)
+      PartCard            one part, its possible sources, "Which supplier made it?" or the resolution
+    By supplier           flagged / only source of a part / one of several sources, with flag buttons
+  SuppliersPage           supplier table: parts it can make, toys reached, finding, flag / withdraw
+  SupplierDetailPage      what a finding would do, parts it can make and who else can,
+                          toys it reaches and through which parts
   FlagDialog              consequence preview, confirm
   Shared
     ExposureBadge         word + symbol + color
-    UndoMessage           after a flag
+    NoticeBar             confirmation with Undo, after a flag or a resolution
     EmptyState, ErrorState, Skeleton
 ```
 
-State: the server is the source of truth. After a flag or a withdraw the affected queries are refetched. The token is kept for the browser session and sent with every request. A 401 from the API sends the user back to the login page.
+State: the server is the source of truth. After a flag, a withdraw or a resolution, every list and detail is refetched, and success is shown only once the server confirms. The token is kept for the browser session and sent with every request. A 401 from the API sends the user back to the login page, and signing in or out empties the cache. Sentences such as the "why" line are built in the browser from the trace; the API sends no prose.
 
 ## Stack
 
@@ -250,21 +247,22 @@ State: the server is the source of truth. After a flag or a withdraw the affecte
 | API | Python, FastAPI | The assignment asks for Python; typed models double as the API contract and documentation |
 | Database | SQLite | One file per Finisher plus one for accounts, no server to install; each Finisher has a few thousand rows and one writer |
 | Frontend | React, TypeScript, Vite | The assignment asks for React; types catch contract drift |
-| Frontend data | A query library with refetch on change | Server state is the source of truth |
+| Frontend data | React Router, TanStack Query, plain CSS | Server state is the source of truth ([D19](decisions.md#d19-frontend-libraries-react-router-tanstack-query-plain-css)) |
 
 See [D14](decisions.md#d14-stack-fastapi-sqlite-react-with-typescript).
 
 ## Checking it
 
-- The exposure calculator is unit-tested against the rules in the spec, including a part with two suppliers and a part with none.
-- API tests cover the acceptance checklist in the spec, especially idempotent record and withdraw.
+`npm test` at the repository root runs both suites.
+
+- **Backend (pytest).** The seed against the real CSVs (totals, broken references, refusing to run twice); the exposure calculator against each rule in the spec, including a part with two suppliers and a part with none; the API against the acceptance checklist, including idempotent writes and that every supplier's preview equals what flagging it then does; resolutions, including the schema upgrade of databases seeded before them.
 - **Isolation tests**, since this is what is assessed:
-  - Every data endpoint refuses a request with no token or a bad one.
+  - Every data endpoint refuses a request with no token or a bad one; a test fails if an endpoint is added without being listed there.
   - Each user's toy list is exactly its Finisher's rows of `toys.csv`, and each Finisher database holds only the parts and suppliers those toys reach.
   - Two users of different Finishers call the same URLs with the same ids and each gets only their own records.
-  - A finding recorded by Finisher A leaves Finisher B's database unchanged, including B's supplier with the same code and id, and B cannot withdraw it.
+  - A finding or resolution recorded by Finisher A leaves Finisher B's database unchanged, checked in the files, and B cannot withdraw it.
   - The function that picks the database returns the right file for each user and cannot be steered by anything in the request.
-- One end-to-end pass follows the walkthrough in [ux.md](ux.md).
+- **End to end (Playwright).** A real browser against the real UI and API, seeded into a temporary folder: sign-in flows, every screen, flag, undo, withdraw, resolve, and the walkthrough in [ux.md](ux.md) step by step ([D20](decisions.md#d20-the-ui-is-tested-end-to-end-in-a-real-browser)).
 
 ## What breaks first as this grows
 
@@ -276,4 +274,4 @@ See [D14](decisions.md#d14-stack-fastapi-sqlite-react-with-typescript).
 
 ## Not designed yet
 
-Run instructions, the visual design (colors, spacing), and test details beyond the above.
+A phone layout, and the visual design beyond one plain stylesheet. How to run the app is in the [README](../README.md).

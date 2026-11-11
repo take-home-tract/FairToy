@@ -1,0 +1,13 @@
+{
+  "name": "fairtoy",
+  "private": true,
+  "description": "FairToy: flag a supplier for child labor and trace the affected toys",
+  "scripts": {
+    "start": "node scripts/dev.mjs",
+    "test": "node scripts/test.mjs",
+    "reset": "node scripts/dev.mjs --reset-data"
+  },
+  "engines": {
+    "node": ">=22.22.0"
+  }
+}

@@ -63,7 +63,7 @@ Sorted by exposure (affected first), then name. `partsTouched` is how many of th
   "toys": [
     { "id": 187, "code": "TOY-0290", "name": "Marble Digger",
       "exposure": "affected", "partsTouched": 2, "partCount": 22,
-      "flaggedSuppliers": [{ "id": 31, "name": "Lianfa Group" }] }
+      "flaggedSuppliers": [{ "id": 31, "name": "Lianfa Group" }], "partsResolved": 0 }
   ]
 }
 ```

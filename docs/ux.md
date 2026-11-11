@@ -226,4 +226,6 @@ No URL names a Finisher; it always comes from the sign-in.
 
 **Nice to have** (cheap, but cut first if time runs out): the consequence preview in the flag dialog, the undo message after flagging, the supplier detail view, search.
 
+All of the above is built. Added after a first review as an end user: the flagged suppliers in the Toys list, the "By supplier" reading of a toy's chain, the parts a supplier can make and through which parts it reaches each toy, and resolving a possibly affected part.
+
 Desktop first; it should stay usable on a narrow window, but a phone layout is not designed.
